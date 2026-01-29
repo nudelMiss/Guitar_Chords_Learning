@@ -1,6 +1,6 @@
 # camera.py
+
 import cv2
-import numpy as np
 
 class VideoCamera(object):
     def __init__(self):
@@ -12,10 +12,7 @@ class VideoCamera(object):
         self.video.release()
 
     def process_frame(self, frame):
-        """
-        THIS IS WHERE YOUR CODE GOES!
-        Receive a raw frame, apply CV logic, and return the processed frame.
-        """
+        
         
         # --- START OF YOUR ALGORITHM ---
         
@@ -48,3 +45,41 @@ class VideoCamera(object):
         # 4. Encode the frame to JPEG so the browser can understand it
         ret, jpeg = cv2.imencode('.jpg', processed_frame)
         return jpeg.tobytes()
+    
+    
+
+#-------------------------------- --------------------------------
+#               temporary camera.py for UI development
+#-------------------------------- --------------------------------
+
+# camera.py (Temporary version for UI development)
+# import cv2
+
+# class VideoCamera(object):
+#     def __init__(self):
+#         # Open the default camera (index 0)
+#         self.video = cv2.VideoCapture(0)
+
+#     def __del__(self):
+#         # Release the camera resource
+#         self.video.release()
+
+#     def get_frame(self):
+#         success, frame = self.video.read()
+#         if not success:
+#             return None
+            
+#         # Flip the frame horizontally (mirror effect) for better UX
+#         frame = cv2.flip(frame, 1)
+
+#         # --- ALGORITHMS BYPASSED FOR UI TESTING ---
+#         # We are skipping the heavy logic (Guitar/Hand detection) 
+#         # to allow the web server to run without errors.
+        
+#         # Draw static text to confirm video feed is working
+#         cv2.putText(frame, "UI Mode - Logic Disabled", (50, 50), 
+#                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        
+#         # Encode frame to JPEG format for the browser
+#         ret, jpeg = cv2.imencode('.jpg', frame)
+#         return jpeg.tobytes()
