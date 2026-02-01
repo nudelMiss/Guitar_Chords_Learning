@@ -1,40 +1,94 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Guitar Chord Learner</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #f0f0f0;
-        }
-        h1 { color: #333; }
-        .video-container {
-            margin: 20px auto;
-            border: 5px solid #333;
-            display: inline-block;
-        }
-        img {
-            display: block;
-            width: 100%;
-            max-width: 800px;
-        }
-    </style>
-</head>
-<body>
+<script src="https://cdn.tailwindcss.com"></script>
 
-    <h1>Interactive Guitar Tutor</h1>
-    <p>Show your guitar to the camera to start.</p>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;500;700&display=swap" rel="stylesheet">
 
-    <div class="video-container">
-        <img src="{{ url_for('video_feed') }}" alt="Video Stream">
+<style>
+    body { font-family: 'Rubik', sans-serif; }
+    
+    html { scroll-behavior: smooth; }
+</style>
+
+<section class="h-screen w-full bg-slate-900 text-white flex flex-col justify-center items-center relative" style="background-image:url(https://i.pinimg.com/1200x/ad/c6/47/adc647dfb2047ac05da195d4a0d6020e.jpg) ;">
+    
+    <h1 class="text-7xl font-black mb-4 text-amber-800 [-webkit-text-stroke:2px_white]">
+        PLAY GUITAR
+    </h1>
+    
+    <p class="text-xl text-gray-300 mb-8">learn chords with computer vision</p>
+
+    <a href="#features" class="animate-bounce mt-10 text-white">
+        ▼ scroll down to start ▼
+    </a>
+
+</section>
+
+<section id="features" class="min-h-screen bg-orange-50 py-24 relative overflow-hidden">
+    
+    <div class="absolute top-0 right-0 w-96 h-96 bg-amber-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 -translate-y-1/2 translate-x-1/2"></div>
+    <div class="absolute bottom-0 left-0 w-96 h-96 bg-yellow-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 translate-y-1/2 -translate-x-1/2"></div>
+
+    <div class="container mx-auto px-6 relative z-10">
+        
+        <h2 class="text-4xl md:text-5xl font-bold text-center text-amber-900 mb-16">
+            איך זה עובד?
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+            <div class="bg-white rounded-[2rem] p-10 shadow-xl border-t-4 border-amber-600 hover:-translate-y-2 transition-transform duration-300 flex flex-col items-center text-center group">
+                <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6 group-hover:bg-amber-600 transition-colors duration-300">
+                    <span class="text-4xl group-hover:text-white transition-colors duration-300">👁️</span>
+                </div>
+                
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">זיהוי ותיקון בזמן אמת</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    המערכת שלנו "רואה" את האצבעות שלך דרך המצלמה.
+                    <br><br>
+                    אם טעית באצבוע או במיתר, אנחנו נגיד לך בדיוק מה לתקן – ממש כמו מורה שיושב לידך.
+                </p>
+            </div>
+
+            <div class="bg-white rounded-[2rem] p-10 shadow-xl border-t-4 border-yellow-500 hover:-translate-y-2 transition-transform duration-300 flex flex-col items-center text-center group">
+                <div class="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6 group-hover:bg-yellow-500 transition-colors duration-300">
+                    <span class="text-4xl group-hover:text-white transition-colors duration-300">🎶</span>
+                </div>
+                
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">נגינת שירים אהובים</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    אין דרך טובה יותר ללמוד מאשר לנגן את מה שאוהבים.
+                    <br><br>
+                    בחרי שיר מהמאגר, והמערכת תלווה אותך אקורד אחרי אקורד עד שתנגני אותו מושלם.
+                </p>
+            </div>
+
+            <div class="bg-white rounded-[2rem] p-10 shadow-xl border-t-4 border-orange-500 hover:-translate-y-2 transition-transform duration-300 flex flex-col items-center text-center group">
+                <div class="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mb-6 group-hover:bg-orange-500 transition-colors duration-300">
+                    <span class="text-4xl group-hover:text-white transition-colors duration-300">🚀</span>
+                </div>
+                
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">מעקב התקדמות</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    אנחנו זוכרים איפה התקשית ואיפה הצטיינת.
+                    <br><br>
+                    קבל משוב בסוף כל אימון וראה איך אתה משתפר מיום ליום בדרך להיות גיטריסט על.
+                </p>
+               
+            </div>
+
+        </div>
+        <div class="mt-20 flex flex-col md:flex-row justify-center items-center gap-8 pb-20">
+        
+            <a href="/learn-chords" class="group relative px-8 py-4 bg-amber-600 hover:bg-amber-700 text-white text-xl font-bold rounded-full shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl flex items-center gap-3 min-w-[280px] justify-center">
+                <span class="text-2xl group-hover:rotate-12 transition-transform">🎸</span>
+                <span class="whitespace-nowrap">למד אקורדים (מתחילים)</span>
+            </a>
+    
+            <a href="/learn-songs" class="group relative px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-full shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl flex items-center gap-3 min-w-[280px] justify-center">
+                <span class="text-2xl group-hover:rotate-12 transition-transform">🎶</span>
+                <span class="whitespace-nowrap">למד שירים</span>
+            </a>
+    
+        </div>
     </div>
-
-    <div id="chord-display">
-        <h2>Current Chord: <span style="color: blue;">Waiting...</span></h2>
-    </div>
-
-</body>
-</html>
+    
+</section>

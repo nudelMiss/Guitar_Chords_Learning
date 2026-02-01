@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>לימוד אקורדים - Guitar AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Rubik', sans-serif; }
+        
+        /* עיצוב כפתור אקורד פעיל */
+        .chord-btn.active {
+            background-color: #d97706; /* Amber-600 */
+            color: white;
+            border-color: #d97706;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="bg-orange-50 h-screen flex overflow-hidden">
+
+    <aside class="w-1/4 bg-white shadow-2xl z-10 flex flex-col p-6">
+        <h2 class="text-3xl font-bold text-amber-900 mb-8 border-b-2 border-amber-100 pb-4">
+            בחר אקורד
+        </h2>
+        
+        <div class="grid grid-cols-2 gap-4 overflow-y-auto">
+            <button onclick="selectChord('C')" id="btn-C" class="chord-btn p-4 rounded-xl border-2 border-amber-200 text-amber-800 font-bold text-xl hover:bg-amber-50 transition-all duration-300">
+                C Major
+            </button>
+            
+            <button onclick="selectChord('G')" id="btn-G" class="chord-btn p-4 rounded-xl border-2 border-amber-200 text-amber-800 font-bold text-xl hover:bg-amber-50 transition-all duration-300">
+                G Major
+            </button>
+
+            <button onclick="selectChord('D')" id="btn-D" class="chord-btn p-4 rounded-xl border-2 border-amber-200 text-amber-800 font-bold text-xl hover:bg-amber-50 transition-all duration-300">
+                D Major
+            </button>
+
+            <button onclick="selectChord('Am')" id="btn-Am" class="chord-btn p-4 rounded-xl border-2 border-amber-200 text-amber-800 font-bold text-xl hover:bg-amber-50 transition-all duration-300">
+                A Minor
+            </button>
+
+            <button onclick="selectChord('Em')" id="btn-Em" class="chord-btn p-4 rounded-xl border-2 border-amber-200 text-amber-800 font-bold text-xl hover:bg-amber-50 transition-all duration-300">
+                E Minor
+            </button>
+            
+             <button onclick="selectChord('F')" id="btn-F" class="chord-btn p-4 rounded-xl border-2 border-amber-200 text-amber-800 font-bold text-xl hover:bg-amber-50 transition-all duration-300">
+                F Major
+            </button>
+        </div>
+
+        <a href="/" class="mt-auto flex items-center justify-center gap-2 text-gray-500 hover:text-amber-700 transition-colors pt-6">
+            <span>חזרה לראשי</span>
+            <span>➜</span>
+        </a>
+    </aside>
+
+    <main class="flex-1 flex flex-col items-center justify-center p-10 relative bg-slate-900">
+        
+        <div class="absolute top-8 text-center z-20">
+            <h1 class="text-white text-5xl font-black tracking-wider drop-shadow-lg">
+                <span class="text-amber-400">מתרגל:</span> 
+                <span id="current-chord-name">בחר אקורד</span>
+            </h1>
+        </div>
+
+        <div class="relative w-full max-w-4xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-500/30">
+            
+            <img src="{{ url_for('video_feed') }}" class="w-full h-full object-cover transform scale-x-[-1]" alt="Live Feed">
+
+            <div id="feedback-overlay" class="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm p-6 text-center transform translate-y-full transition-transform duration-300">
+                <p id="feedback-text" class="text-2xl font-bold text-white">ממתין לזיהוי...</p>
+            </div>
+        </div>
+
+        <div class="mt-8 flex gap-4">
+            <div class="px-6 py-2 rounded-full bg-green-500/20 text-green-400 border border-green-500/50 font-bold hidden" id="status-success">
+                ✓ מצוין!
+            </div>
+            <div class="px-6 py-2 rounded-full bg-red-500/20 text-red-400 border border-red-500/50 font-bold hidden" id="status-error">
+                ⚠ תקן אצבע 3
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        function selectChord(chordName) {
+            // 1. עדכון הכותרת
+            document.getElementById('current-chord-name').innerText = chordName;
+            
+            // 2. עדכון ויזואלי של הכפתורים (מי נלחץ)
+            // מסירים את ה-Active מכולם
+            document.querySelectorAll('.chord-btn').forEach(btn => btn.classList.remove('active'));
+            // מוסיפים לכפתור שנלחץ
+            document.getElementById('btn-' + chordName).classList.add('active');
+
+            // 3. כאן בעתיד נשלח את המידע לשרת (Backend)
+            console.log("Selected chord:", chordName);
+            
+            // דוגמה לפידבק (רק בשביל שתראי את העיצוב)
+            // showFakeFeedback(); 
+        }
+
+        // פונקציה רק להדגמה - תמחקי אותה כשהלוגיקה תעבוד
+        function showFakeFeedback() {
+            const feedback = document.getElementById('feedback-overlay');
+            feedback.style.transform = "translateY(0)"; // מעלה את הבר
+        }
+    </script>
+</body>
+</html>
