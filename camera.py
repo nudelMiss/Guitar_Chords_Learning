@@ -1,8 +1,10 @@
 # camera.py
+
 import cv2
 from guitar_detector import GuitarDetector      # Ayala
 from hand_detector import HandDetector          # Michal
 from chord_logic import ChordLogic              # Yuval
+ 
 class VideoCamera(object):
     def __init__(self):
         self.video = cv2.VideoCapture(0)
