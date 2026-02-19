@@ -4,39 +4,30 @@ import numpy as np
 def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.5):
     """
     Detect strong vertical frets only in the bottom part of the frame.
-    brightness_thresh: minimum gradient to detect a line
-    bottom_fraction: fraction of the image height to search from the bottom
     Returns a list of vertical lines [x1, y1, x2, y2]
     """
 
     height, width = frame.shape[:2]
-    start_row = int(height * (1 - bottom_fraction))  # start of the bottom part
-
-    # Crop bottom part of the frame
+    start_row = int(height * (1 - bottom_fraction))
     bottom_frame = frame[start_row:, :]
 
-    # --- Grayscale and blur ---
     gray = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (3,3), 0)
 
-    # --- Vertical gradient (Sobel X) ---
     sobelx = cv2.Sobel(blurred, cv2.CV_64F, 1, 0, ksize=3)
     sobelx = cv2.convertScaleAbs(sobelx)
 
-    # --- Threshold to detect strong vertical transitions ---
     _, thresh = cv2.threshold(sobelx, brightness_thresh, 255, cv2.THRESH_BINARY)
 
-    # Morphological closing to connect broken vertical segments
     kernel = np.ones((3,3), np.uint8)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-    # --- Hough transform for vertical lines ---
     lines = cv2.HoughLinesP(
         thresh,
         rho=1,
         theta=np.pi/180,
         threshold=30,
-        minLineLength=15,
+        minLineLength=10,
         maxLineGap=5
     )
 
@@ -46,37 +37,70 @@ def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.5):
             x1, y1, x2, y2 = l[0]
             dx = x2 - x1
             dy = y2 - y1
-            # Mostly vertical
-            if abs(dx) < 5 and dy > 10:
-                # Adjust y coordinates to original frame
+            if abs(dx) < 5 and dy > 5:  # mostly vertical
                 vertical_lines.append([x1, y1 + start_row, x2, y2 + start_row])
 
+    # Sort by X position
     vertical_lines.sort(key=lambda l: l[0])
     return vertical_lines
 
+def merge_vertical_lines(lines, x_threshold=5):
+    """
+    Merge vertical lines that are close in X (overlapping or nearby).
+    Returns a list of representative lines [x, min_y, max_y]
+    """
+
+    if not lines:
+        return []
+
+    # Sort lines by X
+    lines.sort(key=lambda l: l[0])
+
+    merged = []
+    current_group = [lines[0]]
+
+    for line in lines[1:]:
+        if abs(line[0] - current_group[-1][0]) <= x_threshold:
+            current_group.append(line)
+        else:
+            # merge current group
+            min_y = min(l[1] for l in current_group)
+            max_y = max(l[3] for l in current_group)
+            avg_x = int(np.mean([l[0] for l in current_group]))
+            merged.append([avg_x, min_y, avg_x, max_y])
+            current_group = [line]
+
+    # merge last group
+    min_y = min(l[1] for l in current_group)
+    max_y = max(l[3] for l in current_group)
+    avg_x = int(np.mean([l[0] for l in current_group]))
+    merged.append([avg_x, min_y, avg_x, max_y])
+
+    return merged
+
 def main():
     cap = cv2.VideoCapture(0)
-
     if not cap.isOpened():
         print("Error: Cannot open camera")
         return
 
     brightness_thresh = 120
-    bottom_fraction = 0.5  # search only in bottom 50% of the frame
+    bottom_fraction = 0.5
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
-        frets = detect_frets_bottom(frame, brightness_thresh, bottom_fraction)
+        lines = detect_frets_bottom(frame, brightness_thresh, bottom_fraction)
+        merged_lines = merge_vertical_lines(lines, x_threshold=5)
 
-        # Draw detected vertical frets
-        for line in frets:
+        # Draw representative vertical lines
+        for line in merged_lines:
             x1, y1, x2, y2 = line
             cv2.line(frame, (x1, y1), (x2, y2), (0,0,255), 2)
 
-        cv2.imshow("Vertical Frets (Bottom)", frame)
+        cv2.imshow("Vertical Frets (Merged)", frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
