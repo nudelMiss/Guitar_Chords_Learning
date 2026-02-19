@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learn Guitar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Rubik', sans-serif; }
+        
+        /* Custom Scrollbar - Matching the warm theme */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #fff7ed; } /* orange-50 */
+        ::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 4px; } /* orange-300 */
+        ::-webkit-scrollbar-thumb:hover { background: #f97316; } /* orange-500 */
+
+        /* Active Button Styling - Warm Amber Gradient */
+        .chord-btn.active {
+            background: linear-gradient(135deg, #d97706 0%, #ea580c 100%); /* Amber-600 to Orange-600 */
+            border-color: #c2410c;
+            color: white;
+            box-shadow: 0 4px 15px rgba(234, 88, 12, 0.4);
+            transform: scale(1.02);
+        }
+        
+        /* Override specific button text color when active */
+        .chord-btn.active span {
+            color: white !important;
+        }
+    </style>
+</head>
+<body class="bg-orange-50 text-gray-800 h-screen flex overflow-hidden">
+
+    <aside class="w-72 bg-white border-r border-amber-100 flex flex-col shadow-xl z-20">
+        <div class="p-6 border-b border-amber-100 bg-amber-50/50">
+            <h2 class="text-2xl font-bold text-amber-900 tracking-wide flex items-center gap-2">
+                🎸 Select Chord
+            </h2>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <button onclick="selectChord('C')" id="btn-C" class="chord-btn w-full p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-all duration-300 text-left flex justify-between items-center group shadow-sm">
+                <span class="font-bold text-lg text-amber-900">C</span>
+                <span class="text-amber-300 group-hover:text-amber-600 transition-colors">→</span>
+            </button>
+            
+            <button onclick="selectChord('G')" id="btn-G" class="chord-btn w-full p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-all duration-300 text-left flex justify-between items-center group shadow-sm">
+                <span class="font-bold text-lg text-amber-900">G</span>
+                <span class="text-amber-300 group-hover:text-amber-600 transition-colors">→</span>
+            </button>
+
+            <button onclick="selectChord('D')" id="btn-D" class="chord-btn w-full p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-all duration-300 text-left flex justify-between items-center group shadow-sm">
+                <span class="font-bold text-lg text-amber-900">D</span>
+                <span class="text-amber-300 group-hover:text-amber-600 transition-colors">→</span>
+            </button>
+
+            <button onclick="selectChord('A')" id="btn-A" class="chord-btn w-full p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-all duration-300 text-left flex justify-between items-center group shadow-sm">
+                <span class="font-bold text-lg text-amber-900">A</span>
+                <span class="text-amber-300 group-hover:text-amber-600 transition-colors">→</span>
+            </button>
+
+            <button onclick="selectChord('E')" id="btn-E" class="chord-btn w-full p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-all duration-300 text-left flex justify-between items-center group shadow-sm">
+                <span class="font-bold text-lg text-amber-900">E</span>
+                <span class="text-amber-300 group-hover:text-amber-600 transition-colors">→</span>
+            </button>
+            
+             <button onclick="selectChord('F')" id="btn-F" class="chord-btn w-full p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-all duration-300 text-left flex justify-between items-center group shadow-sm">
+                <span class="font-bold text-lg text-amber-900">F</span>
+                <span class="text-amber-300 group-hover:text-amber-600 transition-colors">→</span>
+            </button>
+
+            <button onclick="selectChord('Am')" id="btn-Am" class="chord-btn w-full p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-all duration-300 text-left flex justify-between items-center group shadow-sm">
+                <span class="font-bold text-lg text-amber-900">Am</span>
+                <span class="text-amber-300 group-hover:text-amber-600 transition-colors">→</span>
+            </button>
+
+            <button onclick="selectChord('Em')" id="btn-Em" class="chord-btn w-full p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-all duration-300 text-left flex justify-between items-center group shadow-sm">
+                <span class="font-bold text-lg text-amber-900">Em</span>
+                <span class="text-amber-300 group-hover:text-amber-600 transition-colors">→</span>
+            </button>
+            
+             <button onclick="selectChord('Dm')" id="btn-Dm" class="chord-btn w-full p-4 rounded-xl border border-amber-200 bg-white hover:bg-amber-50 transition-all duration-300 text-left flex justify-between items-center group shadow-sm">
+                <span class="font-bold text-lg text-amber-900">Dm</span>
+                <span class="text-amber-300 group-hover:text-amber-600 transition-colors">→</span>
+            </button>
+        </div>
+
+        <a href="/" class="p-6 border-t border-amber-100 text-amber-700 hover:text-amber-900 hover:bg-amber-50 transition-colors flex items-center gap-2 font-medium">
+            <span>←</span> <span>Back to Home</span>
+        </a>
+    </aside>
+
+    <main class="flex-1 flex flex-col relative bg-orange-50">
+        
+        <header id="practice-header" class="h-24 border-b border-amber-100 bg-white/50 backdrop-blur-sm flex items-center px-10 justify-between opacity-0 transition-opacity duration-500">
+            <div>
+                <p class="text-amber-600 text-sm uppercase tracking-wider font-bold">Now Practicing</p>
+                <h1 class="text-4xl font-bold text-amber-900 flex items-center gap-3 mt-1">
+                    <span id="header-chord-name"></span>
+                </h1>
+            </div>
+            
+            <div id="top-status" class="px-5 py-2 rounded-full bg-white border-2 border-amber-200 text-amber-800 font-medium shadow-sm">
+                Waiting for input...
+            </div>
+        </header>
+
+        <div class="flex-1 p-10 flex gap-10 items-start justify-center overflow-hidden">
+            
+            <div class="relative w-full max-w-4xl aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-200">
+                <img src="{{ url_for('video_feed') }}" class="w-full h-full object-cover transform scale-x-[-1]" alt="Live Feed">
+                
+                <div id="feedback-overlay" class="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-md p-4 transform translate-y-full transition-transform duration-300 border-t border-amber-500/50">
+                    <p id="feedback-text" class="text-2xl font-bold text-white text-center">Identifying...</p>
+                    <ul id="corrections-list" class="text-amber-300 mt-2 text-lg text-center list-none font-medium"></ul>
+                </div>
+            </div>
+
+            <div id="diagram-card" class="w-80 bg-white rounded-3xl p-6 border border-amber-100 shadow-xl hidden flex-col items-center text-center">
+                <h3 class="text-xl text-amber-900 mb-4 font-bold border-b-2 border-amber-100 pb-2 w-full">How to play</h3>
+                
+                <div class="w-full aspect-[3/4] bg-orange-50 rounded-2xl overflow-hidden flex items-center justify-center mb-4 border border-amber-100">
+                    <img id="chord-image" src="" alt="Chord Diagram" class="w-full h-full object-contain p-2">
+                </div>
+                
+                <p class="text-sm text-amber-700/80 leading-relaxed">
+                    Place fingers exactly as shown in the diagram above.
+                </p>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        function selectChord(chordName) {
+            // 1. Reveal Elements
+            document.getElementById('practice-header').classList.remove('opacity-0');
+            document.getElementById('diagram-card').classList.remove('hidden');
+            document.getElementById('diagram-card').classList.add('flex'); 
+
+            // 2. Update Header Text
+            document.getElementById('header-chord-name').innerText = chordName + (chordName.length === 1 ? " Major" : "");
+
+            // 3. Update Sidebar Buttons (Visual active state)
+            document.querySelectorAll('.chord-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + chordName).classList.add('active');
+
+            // 4. Update Chord Image
+            const imgPath = `/static/images/${chordName}.png`;
+            document.getElementById('chord-image').src = imgPath;
+
+            // 5. Log selection
+            console.log("Selected chord:", chordName);
+            
+            // Reset status
+            resetStatus();
+        }
+
+        function resetStatus() {
+            document.getElementById('feedback-overlay').style.transform = "translateY(100%)";
+        }
+    </script>
+</body>
+</html>
