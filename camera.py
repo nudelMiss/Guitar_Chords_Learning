@@ -16,7 +16,6 @@ class VideoCamera(object):
         self.video.release()
 
     def process_frame(self, frame):
-        # 1) Get frets/strings from Girl 1 (DO NOT hardcode here)
         # ---- CHANGE THIS LINE ONLY if Girl 1 API is different ----
         frets_x, strings_y = self.guitar_detector.detect(frame)
         # ---------------------------------------------------------
