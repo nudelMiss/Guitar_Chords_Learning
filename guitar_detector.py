@@ -17,10 +17,10 @@ def detect_strings_bottom(frame, brightness_thresh=80, bottom_fraction=0.5):
 
     # --- Grayscale and blur ---
     gray = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (3,3), 0)
+    #blurred = cv2.GaussianBlur(gray, (3,3), 0)
 
     # --- Horizontal gradient (Sobel Y) ---
-    sobely = cv2.Sobel(blurred, cv2.CV_64F, 0, 1, ksize=3)
+    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
     sobely = cv2.convertScaleAbs(sobely)
 
     # --- Threshold to detect strong horizontal transitions ---
