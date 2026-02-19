@@ -1,8 +1,7 @@
 # camera.py
-
 import cv2
 from guitar_detector import GuitarDetector      # Ayala
-from hand_detector import HandDetector          # Michal
+from hand_detection.hand_detector import HandDetector        
 from chord_logic import ChordLogic              # Yuval
  
 class VideoCamera(object):
