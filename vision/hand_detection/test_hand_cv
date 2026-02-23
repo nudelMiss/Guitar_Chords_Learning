@@ -1,0 +1,115 @@
+import cv2
+import numpy as np
+import math
+from hand_detector_cv import HandDetector
+
+def main():
+    detector = HandDetector()
+    cap = cv2.VideoCapture(0)
+    
+    tracking_mode = False
+    tracked_fingers = [] 
+    
+    # Left hand finger names from left to right (facing the camera)
+    finger_names = ["Pinky", "Ring", "Middle", "Index"]
+    
+    # The maximum distance a point can move between frames and still be considered the same finger
+    MAX_MOVEMENT_DISTANCE = 80 
+
+    print("--- GUITAR CV: EXACT GEOMETRY TRACKER ---")
+    print("1. Make a chord shape with your hand.")
+    print("2. When you see steady green dots on your knuckles/fingers, press SPACE.")
+    print("3. Press SPACE again if you need to reset.")
+    print("Press 'q' to quit.")
+
+    while True:
+        ret, frame = cap.read()
+        if not ret: break
+        
+        # Mirror the frame
+        frame = cv2.flip(frame, 1)
+        key = cv2.waitKey(1) & 0xFF
+        
+        # Extract the raw exact peaks from our detector
+        num_peaks, raw_points = detector.detect_fingers_and_frets(frame)
+        current_peaks = [(pt[1], pt[2]) for pt in raw_points]
+        
+        if not tracking_mode:
+            # --- SEARCHING MODE ---
+            cv2.putText(frame, "Mode: SEARCHING (Make chord & Press SPACE)", (10, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            
+            # Draw all potential raw peaks
+            for px, py in current_peaks:
+                cv2.circle(frame, (px, py), 5, (0, 255, 0), -1)
+                
+            # If SPACE is pressed, lock the 4 main peaks
+            if key == 32:
+                if len(current_peaks) >= 4:
+                    # Sort from left to right
+                    current_peaks.sort(key=lambda p: p[0])
+                    tracked_fingers = []
+                    
+                    # Take the first 4 peaks and assign them names
+                    for i in range(4):
+                        tracked_fingers.append({
+                            "name": finger_names[i],
+                            "pos": current_peaks[i]
+                        })
+                    tracking_mode = True
+                    print("PEAKS LOCKED! Tracking started.")
+                else:
+                    print(f"Need at least 4 peaks to lock! Only found {len(current_peaks)}.")
+                    
+        else:
+            # --- EXACT TRACKING MODE ---
+            cv2.putText(frame, "Mode: TRACKING LOCKED (Press SPACE to reset)", (10, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            for finger in tracked_fingers:
+                last_x, last_y = finger["pos"]
+                best_peak = None
+                min_dist = float('inf')
+                
+                # Find the closest current peak to our last known position
+                for px, py in current_peaks:
+                    dist = math.sqrt((px - last_x)**2 + (py - last_y)**2)
+                    if dist < min_dist:
+                        min_dist = dist
+                        best_peak = (px, py)
+                
+                # If we found a valid peak within our allowed movement radius
+                if best_peak is not None and min_dist < MAX_MOVEMENT_DISTANCE:
+                    target_x, target_y = best_peak
+                    
+                    # Update finger to the new exact position
+                    finger["pos"] = (target_x, target_y)
+                    
+                    # Draw the finger location and name
+                    cv2.circle(frame, (target_x, target_y), 8, (0, 255, 0), -1)
+                    cv2.putText(frame, finger["name"], (target_x - 15, target_y - 15), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                else:
+                    # GHOST MODE: Keep the last known position but color it orange
+                    cv2.circle(frame, (int(last_x), int(last_y)), 6, (0, 165, 255), -1)
+                    cv2.putText(frame, f"{finger['name']} (GHOST)", (int(last_x) - 15, int(last_y) - 15), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 2)
+            
+            # Reset if SPACE is pressed again
+            if key == 32:
+                tracking_mode = False
+                tracked_fingers = []
+                print("TRACKING RESET.")
+
+        # Show the final frame
+        cv2.imshow("CV Exact Tracker", frame)
+        
+        # Quit on 'q'
+        if key == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
