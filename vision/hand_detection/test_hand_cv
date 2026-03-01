@@ -1,0 +1,67 @@
+import cv2
+import numpy as np
+from hand_detector_cv import HandDetector
+
+
+# Input: A video feed from the webcam
+# Output: A real-time display of the video feed with detected fingers 
+
+def main():
+    detector = HandDetector()
+    cap = cv2.VideoCapture(0)
+    
+    # Left hand finger names from left to right in a mirrored camera 
+    finger_names = ["Pinky", "Ring", "Middle", "Index", "Thumb"]
+
+    print("--- GUITAR CV: CONTINUOUS REAL-TIME LABELING ---")
+    print("No locking required. Identifying fingers frame by frame.")
+    print("Press 'q' to quit.")
+
+    while True:
+        ret, frame = cap.read()
+        if not ret: break
+        
+        # Mirror the frame
+        frame = cv2.flip(frame, 1)
+        
+        # Extract the raw exact peaks from our detector
+        # The detector returns: (x, y, fret, string)
+        num_peaks, raw_points = detector.detect_fingers_and_frets(frame)
+        
+        # Extract just the x and y coordinates for drawing
+        current_peaks = [(pt[0], pt[1]) for pt in raw_points]
+        
+        # Sort peaks from left to right based on the x-coordinate
+        # This is the core logic: we assume the leftmost peak is the Pinky, and the rightmost is the Thumb
+        current_peaks.sort(key=lambda p: p[0])
+        
+        # Display current mode and peak count on screen
+        cv2.putText(frame, "Mode: CONTINUOUS REAL-TIME LABELING", (10, 30), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        cv2.putText(frame, f"Detected Peaks: {len(current_peaks)}", (10, 60), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        
+        # Assign names and draw them directly
+        for i, peak in enumerate(current_peaks):
+            x, y = peak
+            
+            # Assign name based on sorted position, or generic name if more than 5 peaks are found
+            name = finger_names[i] if i < len(finger_names) else f"Extra_{i+1}"
+            
+            # Draw the finger location and name on the frame
+            cv2.circle(frame, (x, y), 8, (0, 255, 0), -1)
+            cv2.putText(frame, name, (x - 15, y - 15), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+        # Show the final frame
+        cv2.imshow("CV Continuous Tracker", frame)
+        
+        # Quit on 'q'
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()

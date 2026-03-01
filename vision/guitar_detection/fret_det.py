@@ -17,9 +17,7 @@ def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.5):
 
     # --- Grayscale and blur ---
     gray = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2GRAY)
-    #blurred = cv2.GaussianBlur(gray, (3,3), 0)
-
-    # --- Vertical gradient (Sobel X) ---
+    #blurred = cv2.GaussianBlur(gray, (3,3), 0)l X) ---
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
     sobelx = cv2.convertScaleAbs(sobelx)
 
