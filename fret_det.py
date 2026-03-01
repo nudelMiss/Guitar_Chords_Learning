@@ -40,6 +40,7 @@ def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.5):
         maxLineGap=5
     )
 
+    # --- Vertical lines filtering ---
     vertical_lines = []
     if lines is not None:
         for l in lines:
@@ -54,6 +55,7 @@ def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.5):
     vertical_lines.sort(key=lambda l: l[0])
     return vertical_lines
 
+
 def main():
     cap = cv2.VideoCapture(0)
 
@@ -62,7 +64,7 @@ def main():
         return
 
     brightness_thresh = 120
-    bottom_fraction = 0.5  # search only in bottom 50% of the frame
+    bottom_fraction = 0.4  # search only in bottom 50% of the frame
 
     while True:
         ret, frame = cap.read()
@@ -78,12 +80,81 @@ def main():
 
         cv2.imshow("Vertical Frets (Bottom)", frame)
 
+        # --- Key handling ---
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
+
+        # Press 'c' to perform detection loop
+        if key == ord('c'):
+            stored_lines = []
+            i = 0
+            while i < 10:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                frets = detect_frets_bottom(frame, brightness_thresh, 0.3)
+                stored_lines += frets
+                print(f"Detected {len(stored_lines)} frets")
+                i += 1
+            stored_lines = merge_vertical_lines(stored_lines)
+
+        # Press 'q' to quit
+        elif key == ord('q'):
             break
 
     cap.release()
     cv2.destroyAllWindows()
+
+
+def merge_vertical_lines(lines, x_threshold=5, y_threshold=10):
+    """
+    Merge vertical lines that are close to each other in X and Y.
+    lines: list of [x1, y1, x2, y2]
+    x_threshold: max horizontal distance to consider lines part of the same group
+    y_threshold: max vertical overlap to consider lines part of the same group
+    Returns: list of merged lines [{"x": avg_x, "y1": min_y, "y2": max_y}]
+    """
+
+    if not lines:
+        return []
+
+    # Sort lines by X coordinate
+    lines.sort(key=lambda l: l[0])
+
+    merged = []
+    current_group = [lines[0]]
+
+    for l in lines[1:]:
+        # Compare X distance with last line in group
+        if abs(l[0] - current_group[-1][0]) <= x_threshold:
+            # Check vertical overlap
+            last_y1 = min(l[1] for l in current_group)
+            last_y2 = max(l[3] for l in current_group)
+            # If any overlap vertically (or close)
+            if l[3] + y_threshold >= last_y1 and l[1] - y_threshold <= last_y2:
+                current_group.append(l)
+            else:
+                # Merge current group into one line
+                min_y = min(line[1] for line in current_group)
+                max_y = max(line[3] for line in current_group)
+                avg_x = int(np.mean([line[0] for line in current_group]))
+                merged.append({"x": avg_x, "y1": min_y, "y2": max_y})
+                current_group = [l]
+        else:
+            # Merge current group into one line
+            min_y = min(line[1] for line in current_group)
+            max_y = max(line[3] for line in current_group)
+            avg_x = int(np.mean([line[0] for line in current_group]))
+            merged.append({"x": avg_x, "y1": min_y, "y2": max_y})
+            current_group = [l]
+
+    # Merge last group
+    min_y = min(line[1] for line in current_group)
+    max_y = max(line[3] for line in current_group)
+    avg_x = int(np.mean([line[0] for line in current_group]))
+    merged.append({"x": avg_x, "y1": min_y, "y2": max_y})
+
+    return merged
+
 
 if __name__ == "__main__":
     main()
