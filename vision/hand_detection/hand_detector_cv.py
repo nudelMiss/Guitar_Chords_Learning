@@ -31,8 +31,10 @@ class HandDetector:
                 
         return fret_idx, string_idx
 
+    # Detect fingers and determine their fret and string positions
+    # Input: frame (BGR image)
+    # Output: (num_fingers, [(x, y, fret, string), ...])
     def detect_fingers_and_frets(self, frame):
-        #fixed the color of the frame and making a mask to detect the hand and fingers
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         mask = cv2.inRange(hsv, self.lower_skin, self.upper_skin)
         
@@ -49,7 +51,6 @@ class HandDetector:
         if cv2.contourArea(hand_contour) < 2000:
             return 0, []
             
-        # 1. Find the Centroid of the hand
         M = cv2.moments(hand_contour)
         if M["m00"] != 0:
             cx = int(M["m10"] / M["m00"])
@@ -58,81 +59,84 @@ class HandDetector:
             cx, cy = 0, 0
             
         hull_indices = cv2.convexHull(hand_contour, returnPoints=False)
-        hull_points = cv2.convexHull(hand_contour, returnPoints=True)
-        
-        if len(hull_indices) < 3:
+        if hull_indices is None or len(hull_indices) < 3:
             return 0, []
             
-        try:
-            defects = cv2.convexityDefects(hand_contour, hull_indices)
-        except Exception:
-            return 0, []
+        candidates = []
+        
+        # --- 1. CURVATURE ANALYSIS (Smart Peak Detection) ---
+        # We measure the angle at every peak to see how "sharp" it is.
+        for i in range(len(hull_indices)):
+            idx = hull_indices[i][0]
+            pt = tuple(hand_contour[idx][0])
             
-        fingertips = []
-        
-        # 2. Add Topmost point
-        topmost = tuple(hand_contour[hand_contour[:, :, 1].argmin()][0])
-        fingertips.append(topmost)
-        
-        # 3. Add peaks from Defects (Valleys)
-        if defects is not None:
-            for i in range(defects.shape[0]):
-                s, e, f, d = defects[i, 0]
-                start = tuple(hand_contour[s][0])
-                end = tuple(hand_contour[e][0])
-                far = tuple(hand_contour[f][0])
-                
-                a = math.sqrt((end[0] - start[0])**2 + (end[1] - start[1])**2)
-                b = math.sqrt((far[0] - start[0])**2 + (far[1] - start[1])**2)
-                c = math.sqrt((end[0] - far[0])**2 + (end[1] - far[1])**2)
-                
-                angle = math.acos((b**2 + c**2 - a**2) / (2 * b * c)) * 180 / math.pi
-                
-                if angle <= 130 and d > 5000:
-                    fingertips.append(start)
-                    fingertips.append(end)
-                    
-        # 4. Add peaks from Convex Hull
-        for point in hull_points:
-            pt = tuple(point[0])
             dist_center = math.sqrt((pt[0] - cx)**2 + (pt[1] - cy)**2)
             
-            # INCREASED to cy + 150 because the thumb joint is lower towards the wrist
-            if dist_center > 40 and pt[1] < cy + 150:
-                fingertips.append(pt)
-                    
-        # 5. Add Leftmost and Rightmost points
-        leftmost = tuple(hand_contour[hand_contour[:, :, 0].argmin()][0])
-        rightmost = tuple(hand_contour[hand_contour[:, :, 0].argmax()][0])
-        
-        dist_left = math.sqrt((leftmost[0] - cx)**2 + (leftmost[1] - cy)**2)
-        dist_right = math.sqrt((rightmost[0] - cx)**2 + (rightmost[1] - cy)**2)
-        
-        # INCREASED to cy + 150 here as well to catch the thumb
-        if dist_left > 30 and leftmost[1] < cy + 150:
-            fingertips.append(leftmost)
-        if dist_right > 30 and rightmost[1] < cy + 150:
-            fingertips.append(rightmost)
+            # Ignore points too close to the wrist/center
+            if dist_center < 40 or pt[1] > cy + 120:
+                continue
+                
+            # Walk 25 points backward and forward along the contour
+            step = 25
+            idx_prev = (idx - step) % len(hand_contour)
+            idx_next = (idx + step) % len(hand_contour)
             
-        # 6. Filter duplicates
-        filtered_tips = []
-        for tip in fingertips:
+            pt_prev = tuple(hand_contour[idx_prev][0])
+            pt_next = tuple(hand_contour[idx_next][0])
+            
+            # Calculate the angle of the peak using the Law of Cosines
+            a = math.sqrt((pt_next[0] - pt_prev[0])**2 + (pt_next[1] - pt_prev[1])**2)
+            b = math.sqrt((pt[0] - pt_prev[0])**2 + (pt[1] - pt_prev[1])**2)
+            c = math.sqrt((pt_next[0] - pt[0])**2 + (pt_next[1] - pt[1])**2)
+            
+            if b * c == 0:
+                continue
+                
+            # Math protection for floating point inaccuracies
+            val = (b**2 + c**2 - a**2) / (2 * b * c)
+            val = max(min(val, 1.0), -1.0) 
+            angle = math.acos(val) * 180 / math.pi
+            
+            # A true finger or knuckle will have an angle less than ~110 degrees
+            # The flat edge of a palm will be ~150-180 degrees
+            if angle < 110:
+                candidates.append((pt, angle))
+                
+        # --- 2. FILTER DUPLICATES & KEEP THE SHARPEST ---
+        filtered_peaks = []
+        for pt, angle in candidates:
             is_duplicate = False
-            for filtered_tip in filtered_tips:
-                dist = math.sqrt((tip[0] - filtered_tip[0])**2 + (tip[1] - filtered_tip[1])**2)
-                if dist < 30:
+            for i, (f_pt, f_angle) in enumerate(filtered_peaks):
+                dist = math.sqrt((pt[0] - f_pt[0])**2 + (pt[1] - f_pt[1])**2)
+                
+                # If points are close, they belong to the same finger
+                if dist < 45: 
                     is_duplicate = True
+                    # Keep the one that is "sharper" (smaller angle)
+                    if angle < f_angle:
+                        filtered_peaks[i] = (pt, angle)
                     break
+                    
             if not is_duplicate:
-                filtered_tips.append(tip)
-
-        # 7. Sort points from left to right (X-axis)
-        filtered_tips.sort(key=lambda p: p[0])
+                filtered_peaks.append((pt, angle))
+                
+        # --- 3. TAKE MAX 5 POINTS ---
+        # Sort by angle ascending (sharpest peaks first)
+        filtered_peaks.sort(key=lambda x: x[1])
+        
+        # Keep exactly the top 5 sharpest points
+        best_5_peaks = filtered_peaks[:5]
+        
+        # Extract just the (x, y) coordinates (discard the angle data)
+        final_points = [x[0] for x in best_5_peaks]
+        
+        # --- 4. SORT LEFT TO RIGHT FOR LABELING ---
+        final_points.sort(key=lambda p: p[0])
         
         points_data = []
-        for tip in filtered_tips:
+        for tip in final_points:
             fret, string = self._get_fret_and_string(tip[0], tip[1])
             # Return raw data: (x, y, fret, string)
             points_data.append((tip[0], tip[1], fret, string))
             
-        return len(filtered_tips), points_data
+        return len(final_points), points_data

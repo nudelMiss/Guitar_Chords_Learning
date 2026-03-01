@@ -2,6 +2,10 @@ import cv2
 import numpy as np
 from hand_detector_cv import HandDetector
 
+
+# Input: A video feed from the webcam
+# Output: A real-time display of the video feed with detected fingers 
+
 def main():
     detector = HandDetector()
     cap = cv2.VideoCapture(0)
