@@ -7,7 +7,6 @@ UPPER_INST = np.array([166, 241, 245], dtype=np.uint8)
 K_OPEN = 1
 K_CLOSE = 21
 
-
 def main():
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
