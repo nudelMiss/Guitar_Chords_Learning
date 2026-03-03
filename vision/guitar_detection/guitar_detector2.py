@@ -26,10 +26,7 @@ Y_BIN = 9              # INCREASED: Larger bins to allow for more variation in s
 MIN_HITS = 7          # INCREASED: Require the string to appear more times to be considered stable
 MIN_GOOD_LENGTH = 180  # minimum string length to consider "good"
 
-
-
 last_stable = []
-
 
 def angle_deg(x1, y1, x2, y2):
     # Calculate the angle between two points
