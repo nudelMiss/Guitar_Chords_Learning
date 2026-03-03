@@ -65,6 +65,12 @@ def main():
     brightness_thresh = 120
     bottom_fraction = 0.4
 
+    # --- Stability/Hysteresis Memory ---
+    last_stable_frets = []
+    last_y_top, last_y_bottom = 0, 0
+    STABILITY_THRESHOLD_X = 5  # Min pixels to move before updating frets
+    STABILITY_THRESHOLD_Y = 5  # Min pixels to move before updating neck
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -85,27 +91,32 @@ def main():
         # Increasing x_threshold slightly helps group jittery lines together
         stable_frets = merge_vertical_lines(all_recent_detections, x_threshold=20)
 
-        # 5. Detect the neck boundaries
-        y_top, y_bottom = detect_guitar_neck_bounds(frame)
+        # 5. Detect current potential neck boundaries
+        y_top_new, y_bottom_new = detect_guitar_neck_bounds(frame, bottom_fraction)
 
-        # 6. Draw the neck boundaries for reference (Blue lines)
-        cv2.line(frame, (0, y_top), (frame.shape[1], y_top), (255, 0, 0), 2)
-        cv2.line(frame, (0, y_bottom), (frame.shape[1], y_bottom), (255, 0, 0), 2)
+        # 6. Hysteresis: Update Neck Bounds only if change is significant
+        if abs(y_top_new - last_y_top) > STABILITY_THRESHOLD_Y or \
+                abs(y_bottom_new - last_y_bottom) > STABILITY_THRESHOLD_Y:
+            last_y_top, last_y_bottom = y_top_new, y_bottom_new
 
-        # 7. Use these boundaries when drawing your STABLE frets
-        for line in stable_frets:
-            # We ignore the original y1, y2 from detection and use the neck bounds
+        # 7. Hysteresis: Update Frets only if count changed or movement is significant
+        if len(stable_frets) != len(last_stable_frets):
+            last_stable_frets = stable_frets
+        elif len(stable_frets) > 0:
+            # Check average movement of all frets to see if it's just jitter
+            avg_diff = np.mean([abs(stable_frets[i][0] - last_stable_frets[i][0]) for i in range(len(stable_frets))])
+            if avg_diff > STABILITY_THRESHOLD_X:
+                last_stable_frets = stable_frets
+
+        # 8. Drawing - Use the LAST STABLE values to prevent flickering
+        # Draw Neck Boundaries (Blue)
+        cv2.line(frame, (0, last_y_top), (frame.shape[1], last_y_top), (255, 0, 0), 2)
+        cv2.line(frame, (0, last_y_bottom), (frame.shape[1], last_y_bottom), (255, 0, 0), 2)
+
+        # Draw Frets (Green) - Constrained between the blue neck lines
+        for line in last_stable_frets:
             x_pos = line[0]
-            cv2.line(frame, (x_pos, y_top), (x_pos, y_bottom), (0, 255, 0), 2)
-
-        # 8. Drawing - Visualizing the stable result
-        for line in stable_frets:
-            # Green lines for stable, merged frets
-            cv2.line(frame, (line[0], line[1]), (line[2], line[3]), (0, 255, 0), 2)
-
-        # Optional: draw raw detections in thin red to see the difference
-        # for line in raw_lines:
-        #    cv2.line(frame, (line[0], line[1]), (line[2], line[3]), (0, 0, 255), 1)
+            cv2.line(frame, (x_pos, last_y_top), (x_pos, last_y_bottom), (0, 255, 0), 2)
 
         cv2.imshow("Stable Fret Detection", frame)
 
@@ -115,7 +126,7 @@ def main():
     cap.release()
     cv2.destroyAllWindows()
 
-def merge_vertical_lines(lines, x_threshold=50):
+def merge_vertical_lines(lines, x_threshold=20):
     """
     Groups vertical lines based on horizontal proximity and averages them.
     """
@@ -157,42 +168,50 @@ def merge_vertical_lines(lines, x_threshold=50):
     return final_lines
 
 
-def detect_guitar_neck_bounds(frame):
+def detect_guitar_neck_bounds(frame, bottom_fraction=0.4):
     """
-    Detects the top and bottom horizontal boundaries of the guitar neck.
-    Returns (y_top, y_bottom)
+    Detects the top and bottom horizontal boundaries of the guitar neck,
+    searching only within the bottom part of the frame.
     """
     height, width = frame.shape[:2]
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # Calculate starting row for the ROI
+    start_row = int(height * (1 - bottom_fraction))
 
-    # --- Detect horizontal edges using Sobel Y ---
+    # Crop the frame to focus only on the bottom part
+    bottom_roi = frame[start_row:, :]
+    gray = cv2.cvtColor(bottom_roi, cv2.COLOR_BGR2GRAY)
+
+    # --- Detect horizontal edges in the ROI ---
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
     sobely = cv2.convertScaleAbs(sobely)
 
-    # Threshold to find strong horizontal lines (strings/neck edges)
+    # Threshold for horizontal lines
     _, thresh = cv2.threshold(sobely, 50, 255, cv2.THRESH_BINARY)
 
-    # --- Hough Transform for horizontal lines ---
+    # --- Hough Transform for horizontal segments ---
     lines = cv2.HoughLinesP(
-        thresh, 1, np.pi / 180, threshold=100,
-        minLineLength=width // 3, maxLineGap=20
+        thresh, 1, np.pi / 180, threshold=50,
+        minLineLength=width // 4, maxLineGap=50
     )
 
     y_coords = []
     if lines is not None:
         for l in lines:
             x1, y1, x2, y2 = l[0]
-            # Filter for mostly horizontal lines
-            if abs(y2 - y1) < 10:
-                y_coords.append((y1 + y2) // 2)
+            # Verify the line is mostly horizontal
+            if abs(y2 - y1) < 15:
+                # Add the detected Y and offset it by start_row to match full frame
+                y_coords.append(((y1 + y2) // 2) + start_row)
 
     if len(y_coords) >= 2:
-        y_top = min(y_coords)
-        y_bottom = max(y_coords)
+        # Sort or take min/max to find the boundary strings
+        y_coords.sort()
+        y_top = y_coords[0]
+        y_bottom = y_coords[-1]
         return y_top, y_bottom
 
-    # Default values if no neck is detected (preventing errors)
-    return int(height * 0.4), int(height * 0.9)
+    # Fallback values relative to the bottom fraction if detection fails
+    return int(height * 0.6), int(height * 0.9)
 
 
 if __name__ == "__main__":
