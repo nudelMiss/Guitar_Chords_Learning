@@ -17,7 +17,6 @@ def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.5):
 
     # --- Grayscale and blur ---
     gray = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2GRAY)
-    #blurred = cv2.GaussianBlur(gray, (3,3), 0)l X) ---
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
     sobelx = cv2.convertScaleAbs(sobelx)
 
@@ -56,102 +55,144 @@ def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.5):
 
 def main():
     cap = cv2.VideoCapture(0)
-
     if not cap.isOpened():
         print("Error: Cannot open camera")
         return
 
+    # --- Setup for Stability ---
+    frame_buffer = []      # List to store detections from the last N frames
+    MAX_BUFFER_SIZE = 6    # How many frames to remember (Temporal Memory)
     brightness_thresh = 120
-    bottom_fraction = 0.4  # search only in bottom 50% of the frame
+    bottom_fraction = 0.4
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
-        frets = detect_frets_bottom(frame, brightness_thresh, bottom_fraction)
+        # 1. Detect raw lines in the current frame
+        raw_lines = detect_frets_bottom(frame, brightness_thresh, bottom_fraction)
 
-        # Draw detected vertical frets
-        for line in frets:
-            x1, y1, x2, y2 = line
-            cv2.line(frame, (x1, y1), (x2, y2), (0,0,255), 2)
+        # 2. Update the temporal buffer
+        frame_buffer.append(raw_lines)
+        if len(frame_buffer) > MAX_BUFFER_SIZE:
+            frame_buffer.pop(0) # Remove oldest frame detections
 
-        cv2.imshow("Vertical Frets (Bottom)", frame)
+        # 3. Flatten buffer: combine all lines from all frames in the buffer
+        all_recent_detections = [line for f_lines in frame_buffer for line in f_lines]
 
-        # --- Key handling ---
-        key = cv2.waitKey(1) & 0xFF
+        # 4. Merge them using the improved logic
+        # Increasing x_threshold slightly helps group jittery lines together
+        stable_frets = merge_vertical_lines(all_recent_detections, x_threshold=20)
 
-        # Press 'c' to perform detection loop
-        if key == ord('c'):
-            stored_lines = []
-            i = 0
-            while i < 10:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                frets = detect_frets_bottom(frame, brightness_thresh, 0.3)
-                stored_lines += frets
-                print(f"Detected {len(stored_lines)} frets")
-                i += 1
-            stored_lines = merge_vertical_lines(stored_lines)
+        # 5. Detect the neck boundaries
+        y_top, y_bottom = detect_guitar_neck_bounds(frame)
 
-        # Press 'q' to quit
-        elif key == ord('q'):
+        # 6. Draw the neck boundaries for reference (Blue lines)
+        cv2.line(frame, (0, y_top), (frame.shape[1], y_top), (255, 0, 0), 2)
+        cv2.line(frame, (0, y_bottom), (frame.shape[1], y_bottom), (255, 0, 0), 2)
+
+        # 7. Use these boundaries when drawing your STABLE frets
+        for line in stable_frets:
+            # We ignore the original y1, y2 from detection and use the neck bounds
+            x_pos = line[0]
+            cv2.line(frame, (x_pos, y_top), (x_pos, y_bottom), (0, 255, 0), 2)
+
+        # 8. Drawing - Visualizing the stable result
+        for line in stable_frets:
+            # Green lines for stable, merged frets
+            cv2.line(frame, (line[0], line[1]), (line[2], line[3]), (0, 255, 0), 2)
+
+        # Optional: draw raw detections in thin red to see the difference
+        # for line in raw_lines:
+        #    cv2.line(frame, (line[0], line[1]), (line[2], line[3]), (0, 0, 255), 1)
+
+        cv2.imshow("Stable Fret Detection", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     cap.release()
     cv2.destroyAllWindows()
 
-
-def merge_vertical_lines(lines, x_threshold=5, y_threshold=10):
+def merge_vertical_lines(lines, x_threshold=50):
     """
-    Merge vertical lines that are close to each other in X and Y.
-    lines: list of [x1, y1, x2, y2]
-    x_threshold: max horizontal distance to consider lines part of the same group
-    y_threshold: max vertical overlap to consider lines part of the same group
-    Returns: list of merged lines [{"x": avg_x, "y1": min_y, "y2": max_y}]
+    Groups vertical lines based on horizontal proximity and averages them.
     """
-
     if not lines:
         return []
 
-    # Sort lines by X coordinate
+    # Sort lines by X coordinate to ensure they are processed in order
     lines.sort(key=lambda l: l[0])
 
-    merged = []
-    current_group = [lines[0]]
+    groups = []
+    if len(lines) > 0:
+        # Start the first group with the first line
+        current_group = [lines[0]]
 
-    for l in lines[1:]:
-        # Compare X distance with last line in group
-        if abs(l[0] - current_group[-1][0]) <= x_threshold:
-            # Check vertical overlap
-            last_y1 = min(l[1] for l in current_group)
-            last_y2 = max(l[3] for l in current_group)
-            # If any overlap vertically (or close)
-            if l[3] + y_threshold >= last_y1 and l[1] - y_threshold <= last_y2:
-                current_group.append(l)
+        for i in range(1, len(lines)):
+            # If the X distance between current and previous line is small, group them
+            if abs(lines[i][0] - lines[i - 1][0]) <= x_threshold:
+                current_group.append(lines[i])
             else:
-                # Merge current group into one line
-                min_y = min(line[1] for line in current_group)
-                max_y = max(line[3] for line in current_group)
-                avg_x = int(np.mean([line[0] for line in current_group]))
-                merged.append({"x": avg_x, "y1": min_y, "y2": max_y})
-                current_group = [l]
-        else:
-            # Merge current group into one line
-            min_y = min(line[1] for line in current_group)
-            max_y = max(line[3] for line in current_group)
-            avg_x = int(np.mean([line[0] for line in current_group]))
-            merged.append({"x": avg_x, "y1": min_y, "y2": max_y})
-            current_group = [l]
+                # Close current group and start a new one
+                groups.append(current_group)
+                current_group = [lines[i]]
 
-    # Merge last group
-    min_y = min(line[1] for line in current_group)
-    max_y = max(line[3] for line in current_group)
-    avg_x = int(np.mean([line[0] for line in current_group]))
-    merged.append({"x": avg_x, "y1": min_y, "y2": max_y})
+        # Add the last group to the list
+        groups.append(current_group)
 
-    return merged
+    # Calculate a single representative line for each group
+    final_lines = []
+    for group in groups:
+        # Average the X coordinates
+        avg_x = int(np.mean([l[0] for l in group]))
+        # Take the extreme Y values to cover the full length of the group
+        min_y = min([l[1] for l in group])
+        max_y = max([l[3] for l in group])
+
+        # Format as [x1, y1, x2, y2] to keep consistency with detection output
+        final_lines.append([avg_x, min_y, avg_x, max_y])
+
+    return final_lines
+
+
+def detect_guitar_neck_bounds(frame):
+    """
+    Detects the top and bottom horizontal boundaries of the guitar neck.
+    Returns (y_top, y_bottom)
+    """
+    height, width = frame.shape[:2]
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # --- Detect horizontal edges using Sobel Y ---
+    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    sobely = cv2.convertScaleAbs(sobely)
+
+    # Threshold to find strong horizontal lines (strings/neck edges)
+    _, thresh = cv2.threshold(sobely, 50, 255, cv2.THRESH_BINARY)
+
+    # --- Hough Transform for horizontal lines ---
+    lines = cv2.HoughLinesP(
+        thresh, 1, np.pi / 180, threshold=100,
+        minLineLength=width // 3, maxLineGap=20
+    )
+
+    y_coords = []
+    if lines is not None:
+        for l in lines:
+            x1, y1, x2, y2 = l[0]
+            # Filter for mostly horizontal lines
+            if abs(y2 - y1) < 10:
+                y_coords.append((y1 + y2) // 2)
+
+    if len(y_coords) >= 2:
+        y_top = min(y_coords)
+        y_bottom = max(y_coords)
+        return y_top, y_bottom
+
+    # Default values if no neck is detected (preventing errors)
+    return int(height * 0.4), int(height * 0.9)
 
 
 if __name__ == "__main__":
