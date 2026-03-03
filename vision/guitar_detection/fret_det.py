@@ -1,217 +1,163 @@
 import cv2
 import numpy as np
 
-def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.5):
-    """
-    Detect strong vertical frets only in the bottom part of the frame.
-    brightness_thresh: minimum gradient to detect a line
-    bottom_fraction: fraction of the image height to search from the bottom
-    Returns a list of vertical lines [x1, y1, x2, y2]
-    """
 
+# --- 1. Classical Vision: Fret Detection (Sobel + Hough) ---
+def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.4):
     height, width = frame.shape[:2]
-    start_row = int(height * (1 - bottom_fraction))  # start of the bottom part
-
-    # Crop bottom part of the frame
+    start_row = int(height * (1 - bottom_fraction))
     bottom_frame = frame[start_row:, :]
 
-    # --- Grayscale and blur ---
     gray = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2GRAY)
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
     sobelx = cv2.convertScaleAbs(sobelx)
-
-    # --- Threshold to detect strong vertical transitions ---
     _, thresh = cv2.threshold(sobelx, brightness_thresh, 255, cv2.THRESH_BINARY)
 
-    # Morphological closing to connect broken vertical segments
-    kernel = np.ones((3,3), np.uint8)
+    kernel = np.ones((3, 3), np.uint8)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-    # --- Hough transform for vertical lines ---
-    lines = cv2.HoughLinesP(
-        thresh,
-        rho=1,
-        theta=np.pi/180,
-        threshold=30,
-        minLineLength=15,
-        maxLineGap=5
-    )
+    lines = cv2.HoughLinesP(thresh, 1, np.pi / 180, 30, minLineLength=15, maxLineGap=5)
 
-    # --- Vertical lines filtering ---
     vertical_lines = []
     if lines is not None:
         for l in lines:
             x1, y1, x2, y2 = l[0]
-            dx = x2 - x1
-            dy = y2 - y1
-            # Mostly vertical
-            if abs(dx) < 5 and dy > 10:
-                # Adjust y coordinates to original frame
+            if abs(x2 - x1) < 5 and (y2 - y1) > 10:
                 vertical_lines.append([x1, y1 + start_row, x2, y2 + start_row])
-
-    vertical_lines.sort(key=lambda l: l[0])
     return vertical_lines
 
 
-def main():
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("Error: Cannot open camera")
-        return
-
-    # --- Setup for Stability ---
-    frame_buffer = []      # List to store detections from the last N frames
-    MAX_BUFFER_SIZE = 6    # How many frames to remember (Temporal Memory)
-    brightness_thresh = 120
-    bottom_fraction = 0.4
-
-    # --- Stability/Hysteresis Memory ---
-    last_stable_frets = []
-    last_y_top, last_y_bottom = 0, 0
-    STABILITY_THRESHOLD_X = 5  # Min pixels to move before updating frets
-    STABILITY_THRESHOLD_Y = 5  # Min pixels to move before updating neck
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        # 1. Detect raw lines in the current frame
-        raw_lines = detect_frets_bottom(frame, brightness_thresh, bottom_fraction)
-
-        # 2. Update the temporal buffer
-        frame_buffer.append(raw_lines)
-        if len(frame_buffer) > MAX_BUFFER_SIZE:
-            frame_buffer.pop(0) # Remove oldest frame detections
-
-        # 3. Flatten buffer: combine all lines from all frames in the buffer
-        all_recent_detections = [line for f_lines in frame_buffer for line in f_lines]
-
-        # 4. Merge them using the improved logic
-        # Increasing x_threshold slightly helps group jittery lines together
-        stable_frets = merge_vertical_lines(all_recent_detections, x_threshold=20)
-
-        # 5. Detect current potential neck boundaries
-        y_top_new, y_bottom_new = detect_guitar_neck_bounds(frame, bottom_fraction)
-
-        # 6. Hysteresis: Update Neck Bounds only if change is significant
-        if abs(y_top_new - last_y_top) > STABILITY_THRESHOLD_Y or \
-                abs(y_bottom_new - last_y_bottom) > STABILITY_THRESHOLD_Y:
-            last_y_top, last_y_bottom = y_top_new, y_bottom_new
-
-        # 7. Hysteresis: Update Frets only if count changed or movement is significant
-        if len(stable_frets) != len(last_stable_frets):
-            last_stable_frets = stable_frets
-        elif len(stable_frets) > 0:
-            # Check average movement of all frets to see if it's just jitter
-            avg_diff = np.mean([abs(stable_frets[i][0] - last_stable_frets[i][0]) for i in range(len(stable_frets))])
-            if avg_diff > STABILITY_THRESHOLD_X:
-                last_stable_frets = stable_frets
-
-        # 8. Drawing - Use the LAST STABLE values to prevent flickering
-        # Draw Neck Boundaries (Blue)
-        cv2.line(frame, (0, last_y_top), (frame.shape[1], last_y_top), (255, 0, 0), 2)
-        cv2.line(frame, (0, last_y_bottom), (frame.shape[1], last_y_bottom), (255, 0, 0), 2)
-
-        # Draw Frets (Green) - Constrained between the blue neck lines
-        for line in last_stable_frets:
-            x_pos = line[0]
-            cv2.line(frame, (x_pos, last_y_top), (x_pos, last_y_bottom), (0, 255, 0), 2)
-
-        cv2.imshow("Stable Fret Detection", frame)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-def merge_vertical_lines(lines, x_threshold=20):
-    """
-    Groups vertical lines based on horizontal proximity and averages them.
-    """
-    if not lines:
-        return []
-
-    # Sort lines by X coordinate to ensure they are processed in order
-    lines.sort(key=lambda l: l[0])
-
-    groups = []
-    if len(lines) > 0:
-        # Start the first group with the first line
-        current_group = [lines[0]]
-
-        for i in range(1, len(lines)):
-            # If the X distance between current and previous line is small, group them
-            if abs(lines[i][0] - lines[i - 1][0]) <= x_threshold:
-                current_group.append(lines[i])
-            else:
-                # Close current group and start a new one
-                groups.append(current_group)
-                current_group = [lines[i]]
-
-        # Add the last group to the list
-        groups.append(current_group)
-
-    # Calculate a single representative line for each group
-    final_lines = []
-    for group in groups:
-        # Average the X coordinates
-        avg_x = int(np.mean([l[0] for l in group]))
-        # Take the extreme Y values to cover the full length of the group
-        min_y = min([l[1] for l in group])
-        max_y = max([l[3] for l in group])
-
-        # Format as [x1, y1, x2, y2] to keep consistency with detection output
-        final_lines.append([avg_x, min_y, avg_x, max_y])
-
-    return final_lines
-
-
+# --- 2. Classical Vision: Neck Bounds (Sobel Y) ---
 def detect_guitar_neck_bounds(frame, bottom_fraction=0.4):
-    """
-    Detects the top and bottom horizontal boundaries of the guitar neck,
-    searching only within the bottom part of the frame.
-    """
     height, width = frame.shape[:2]
-    # Calculate starting row for the ROI
     start_row = int(height * (1 - bottom_fraction))
+    gray = cv2.cvtColor(frame[start_row:, :], cv2.COLOR_BGR2GRAY)
 
-    # Crop the frame to focus only on the bottom part
-    bottom_roi = frame[start_row:, :]
-    gray = cv2.cvtColor(bottom_roi, cv2.COLOR_BGR2GRAY)
-
-    # --- Detect horizontal edges in the ROI ---
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
     sobely = cv2.convertScaleAbs(sobely)
-
-    # Threshold for horizontal lines
     _, thresh = cv2.threshold(sobely, 50, 255, cv2.THRESH_BINARY)
 
-    # --- Hough Transform for horizontal segments ---
-    lines = cv2.HoughLinesP(
-        thresh, 1, np.pi / 180, threshold=50,
-        minLineLength=width // 4, maxLineGap=50
-    )
+    lines = cv2.HoughLinesP(thresh, 1, np.pi / 180, 50, minLineLength=width // 4, maxLineGap=50)
 
     y_coords = []
     if lines is not None:
         for l in lines:
-            x1, y1, x2, y2 = l[0]
-            # Verify the line is mostly horizontal
-            if abs(y2 - y1) < 15:
-                # Add the detected Y and offset it by start_row to match full frame
-                y_coords.append(((y1 + y2) // 2) + start_row)
+            if abs(l[0][3] - l[0][1]) < 15:
+                y_coords.append(((l[0][1] + l[0][3]) // 2) + start_row)
 
     if len(y_coords) >= 2:
-        # Sort or take min/max to find the boundary strings
         y_coords.sort()
-        y_top = y_coords[0]
-        y_bottom = y_coords[-1]
-        return y_top, y_bottom
+        return y_coords[0], y_coords[-1]
+    return None, None
 
-    # Fallback values relative to the bottom fraction if detection fails
-    return int(height * 0.6), int(height * 0.9)
+
+def merge_vertical_lines(lines, x_threshold=20):
+    if not lines: return []
+    lines.sort(key=lambda l: l[0])
+    groups = []
+    if len(lines) > 0:
+        curr = [lines[0]]
+        for i in range(1, len(lines)):
+            if abs(lines[i][0] - curr[-1][0]) <= x_threshold:
+                curr.append(lines[i])
+            else:
+                groups.append(curr)
+                curr = [lines[i]]
+        groups.append(curr)
+    return [[int(np.mean([l[0] for l in g])), min(l[1] for l in g),
+             int(np.mean([l[0] for l in g])), max(l[3] for l in g)] for g in groups]
+
+
+# --- 3. Main Loop with Rigid Tracking ---
+def main():
+    cap = cv2.VideoCapture(0)
+
+    # State Memory
+    is_tracking = False
+    tracking_pts = None  # Current tracked points
+    initial_pts = None  # "Anchor" points from the moment of Calibration (C)
+    fret_model_rel = []
+    last_gray = None
+
+    while True:
+        ret, frame = cap.read()
+        if not ret: break
+
+        height, width = frame.shape[:2]
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        display_frame = frame.copy()
+        key = cv2.waitKey(1) & 0xFF
+
+        # Manual Reset
+        if key == ord('r'):
+            is_tracking = False
+            print("Resetting model...")
+
+        if is_tracking and tracking_pts is not None:
+            # LK Optical Flow to track movement
+            new_pts, status, err = cv2.calcOpticalFlowPyrLK(last_gray, gray, tracking_pts, None)
+
+            if status is not None and np.sum(status) >= 3:
+                # RIGID TRANSFORMATION: Find how the neck moved as a single unit
+                # This prevents the "bending" effect you saw
+                matrix, inliers = cv2.estimateAffinePartial2D(initial_pts[status.flatten() == 1],
+                                                              new_pts[status.flatten() == 1])
+
+                if matrix is not None:
+                    # Apply the transformation to the ORIGINAL 4 corners
+                    tracked_corners = cv2.transform(initial_pts, matrix)
+                    tracking_pts = tracked_corners
+                    last_gray = gray.copy()
+
+                    pts = tracked_corners.reshape(-1, 2)
+                    tl, tr, bl, br = pts[0], pts[1], pts[2], pts[3]
+
+                    # Draw frets based on the rigid model
+                    for rel_x in fret_model_rel:
+                        fx_t = tl[0] + rel_x * (tr[0] - tl[0])
+                        fy_t = tl[1] + rel_x * (tr[1] - tl[1])
+                        fx_b = bl[0] + rel_x * (br[0] - bl[0])
+                        fy_b = bl[1] + rel_x * (br[1] - bl[1])
+
+                        p1, p2 = (int(fx_t), int(fy_t)), (int(fx_b), int(fy_b))
+                        # Only draw if the fret is visible in frame
+                        if (0 <= p1[0] < width and 0 <= p1[1] < height and
+                                0 <= p2[0] < width and 0 <= p2[1] < height):
+                            cv2.line(display_frame, p1, p2, (0, 255, 0), 2)
+
+                    # Draw boundaries
+                    cv2.line(display_frame, tuple(tl.astype(int)), tuple(tr.astype(int)), (255, 0, 0), 2)
+                    cv2.line(display_frame, tuple(bl.astype(int)), tuple(br.astype(int)), (255, 0, 0), 2)
+            else:
+                cv2.putText(display_frame, "LOST - Reposition or press R", (10, 30), 1, 1, (0, 0, 255), 2)
+
+        else:
+            # LIVE PREVIEW MODE
+            raw_f = detect_frets_bottom(frame)
+            y_t, y_b = detect_guitar_neck_bounds(frame)
+
+            if y_t is not None:
+                cv2.line(display_frame, (0, y_t), (width, y_t), (0, 0, 255), 1)
+                cv2.line(display_frame, (0, y_b), (width, y_b), (0, 0, 255), 1)
+
+            if key == ord('c') and y_t is not None and len(raw_f) > 2:
+                stable_f = merge_vertical_lines(raw_f)
+                x_min, x_max = stable_f[0][0], stable_f[-1][0]
+
+                # LOCK initial rigid model
+                initial_pts = np.array([[x_min, y_t], [x_max, y_t], [x_min, y_b], [x_max, y_b]],
+                                       dtype=np.float32).reshape(-1, 1, 2)
+                tracking_pts = initial_pts.copy()
+                fret_model_rel = [(f[0] - x_min) / (x_max - x_min) for f in stable_f]
+                last_gray = gray.copy()
+                is_tracking = True
+                print("Locked Rigid Model!")
+
+        cv2.imshow("Rigid Fret Tracker (Vision Only)", display_frame)
+        if key == ord('q'): break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
