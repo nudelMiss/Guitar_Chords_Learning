@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-# --- 1. Classical Vision: Fret Detection (Sobel + Hough) ---
+# --- 1. Classical Vision: Fret Detection ---
 def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.4):
     height, width = frame.shape[:2]
     start_row = int(height * (1 - bottom_fraction))
@@ -27,7 +27,7 @@ def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.4):
     return vertical_lines
 
 
-# --- 2. Classical Vision: Neck Bounds (Sobel Y) ---
+# --- 2. Classical Vision: Neck Bounds ---
 def detect_guitar_neck_bounds(frame, bottom_fraction=0.4):
     height, width = frame.shape[:2]
     start_row = int(height * (1 - bottom_fraction))
@@ -68,16 +68,16 @@ def merge_vertical_lines(lines, x_threshold=20):
              int(np.mean([l[0] for l in g])), max(l[3] for l in g)] for g in groups]
 
 
-# --- 3. Main Loop with Rigid Tracking ---
+# --- 3. Main Loop with Robust RANSAC Tracking ---
 def main():
     cap = cv2.VideoCapture(0)
 
-    # State Memory
     is_tracking = False
-    tracking_pts = None  # Current tracked points
-    initial_pts = None  # "Anchor" points from the moment of Calibration (C)
+    tracking_pts = None  # Points currently tracked
+    initial_pts = None  # Saved points at calibration time
     fret_model_rel = []
     last_gray = None
+    locked_model = {}
 
     while True:
         ret, frame = cap.read()
@@ -88,31 +88,41 @@ def main():
         display_frame = frame.copy()
         key = cv2.waitKey(1) & 0xFF
 
-        # Manual Reset
         if key == ord('r'):
             is_tracking = False
-            print("Resetting model...")
+            print("Tracking Reset.")
 
         if is_tracking and tracking_pts is not None:
-            # LK Optical Flow to track movement
+            # LK Optical Flow
             new_pts, status, err = cv2.calcOpticalFlowPyrLK(last_gray, gray, tracking_pts, None)
 
-            if status is not None and np.sum(status) >= 3:
-                # RIGID TRANSFORMATION: Find how the neck moved as a single unit
-                # This prevents the "bending" effect you saw
-                matrix, inliers = cv2.estimateAffinePartial2D(initial_pts[status.flatten() == 1],
-                                                              new_pts[status.flatten() == 1])
+            # Filter valid points
+            good_new = new_pts[status.flatten() == 1]
+            good_old = initial_pts[status.flatten() == 1]
+
+            if len(good_new) >= 4:
+                # RIGID RANSAC: Find transformation while ignoring outliers (fingers)
+                # ransacReprojThreshold=3 means points moving >3px differently than the guitar are ignored
+                matrix, inliers = cv2.estimateAffinePartial2D(good_old, good_new, method=cv2.RANSAC,
+                                                              ransacReprojThreshold=3)
 
                 if matrix is not None:
-                    # Apply the transformation to the ORIGINAL 4 corners
-                    tracked_corners = cv2.transform(initial_pts, matrix)
-                    tracking_pts = tracked_corners
+                    # Update tracking points based on the robust transformation
+                    tracking_pts = cv2.transform(initial_pts, matrix)
                     last_gray = gray.copy()
 
-                    pts = tracked_corners.reshape(-1, 2)
-                    tl, tr, bl, br = pts[0], pts[1], pts[2], pts[3]
+                    # Calculate the 4 corners for the neck rectangle
+                    corners = np.array([
+                        [locked_model['x_min'], locked_model['y_t']],
+                        [locked_model['x_max'], locked_model['y_t']],
+                        [locked_model['x_min'], locked_model['y_b']],
+                        [locked_model['x_max'], locked_model['y_b']]
+                    ], dtype=np.float32).reshape(-1, 1, 2)
 
-                    # Draw frets based on the rigid model
+                    tracked_corners = cv2.transform(corners, matrix).reshape(-1, 2)
+                    tl, tr, bl, br = tracked_corners[0], tracked_corners[1], tracked_corners[2], tracked_corners[3]
+
+                    # Draw Frets (Green) - Rigidity maintained by the matrix
                     for rel_x in fret_model_rel:
                         fx_t = tl[0] + rel_x * (tr[0] - tl[0])
                         fy_t = tl[1] + rel_x * (tr[1] - tl[1])
@@ -120,19 +130,19 @@ def main():
                         fy_b = bl[1] + rel_x * (br[1] - bl[1])
 
                         p1, p2 = (int(fx_t), int(fy_t)), (int(fx_b), int(fy_b))
-                        # Only draw if the fret is visible in frame
+                        # Bound check before drawing
                         if (0 <= p1[0] < width and 0 <= p1[1] < height and
                                 0 <= p2[0] < width and 0 <= p2[1] < height):
                             cv2.line(display_frame, p1, p2, (0, 255, 0), 2)
 
-                    # Draw boundaries
+                    # Draw Blue Boundaries
                     cv2.line(display_frame, tuple(tl.astype(int)), tuple(tr.astype(int)), (255, 0, 0), 2)
                     cv2.line(display_frame, tuple(bl.astype(int)), tuple(br.astype(int)), (255, 0, 0), 2)
             else:
-                cv2.putText(display_frame, "LOST - Reposition or press R", (10, 30), 1, 1, (0, 0, 255), 2)
+                cv2.putText(display_frame, "LOST - Bring guitar back or press R", (10, 30), 1, 1, (0, 0, 255), 2)
 
         else:
-            # LIVE PREVIEW MODE
+            # PREVIEW MODE
             raw_f = detect_frets_bottom(frame)
             y_t, y_b = detect_guitar_neck_bounds(frame)
 
@@ -144,16 +154,25 @@ def main():
                 stable_f = merge_vertical_lines(raw_f)
                 x_min, x_max = stable_f[0][0], stable_f[-1][0]
 
-                # LOCK initial rigid model
-                initial_pts = np.array([[x_min, y_t], [x_max, y_t], [x_min, y_b], [x_max, y_b]],
-                                       dtype=np.float32).reshape(-1, 1, 2)
+                # Create a GRID of points for robust tracking against occlusions
+                grid_x = np.linspace(x_min, x_max, 10)
+                grid_y = np.linspace(y_t, y_b, 4)
+                temp_pts = []
+                for gx in grid_x:
+                    for gy in grid_y:
+                        temp_pts.append([gx, gy])
+
+                initial_pts = np.array(temp_pts, dtype=np.float32).reshape(-1, 1, 2)
                 tracking_pts = initial_pts.copy()
+
+                locked_model = {'x_min': x_min, 'x_max': x_max, 'y_t': y_t, 'y_b': y_b}
                 fret_model_rel = [(f[0] - x_min) / (x_max - x_min) for f in stable_f]
+
                 last_gray = gray.copy()
                 is_tracking = True
-                print("Locked Rigid Model!")
+                print("Robust Model Locked!")
 
-        cv2.imshow("Rigid Fret Tracker (Vision Only)", display_frame)
+        cv2.imshow("Robust Fret Tracker (Vision Only)", display_frame)
         if key == ord('q'): break
 
     cap.release()
