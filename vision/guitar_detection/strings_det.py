@@ -27,15 +27,14 @@ HOUGH_THRESH = 50
 
 last_stable = []
 
+""" Calculate the absolute angle between two points """
 def angle_deg(x1, y1, x2, y2):
-    """ Calculate the absolute angle between two points """
     return abs(math.degrees(math.atan2((y2 - y1), (x2 - x1))))
 
-
-def build_instrument_mask(imageBGR):
-    """ Isolate the instrument body from the background
+""" Isolate the instrument body from the background
         input: BGR image of the region of interest (bottom part of frame)
         output: binary mask of the instrument body """
+def build_instrument_mask(imageBGR):
     hsv = cv2.cvtColor(imageBGR, cv2.COLOR_BGR2HSV)
     h, s, v = cv2.split(hsv)
 
@@ -53,23 +52,26 @@ def build_instrument_mask(imageBGR):
     mask = cv2.inRange(hsv, lower, upper)
 
     # Basic morphology to remove small specks
+    # make sure kernel sizes are odd and at least 1
     k_open = max(1, int(K_OPEN))
     if k_open % 2 == 0:
         k_open += 1
     k_close = max(1, int(K_CLOSE))
     if k_close % 2 == 0:
         k_close += 1
+
+    # Open to remove small noise, then Close to fill holes and connect the instrument body
     kernel_open = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_open, k_open))
     kernel_close = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_close, k_close))
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_open)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close)
 
-    # Find external contours and keep the largest one (likely the instrument body).
+    # Find external contours and keep the largest one
     contours, _ = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if contours:
         # Select the largest contour by area
         cnt = max(contours, key=cv2.contourArea)
-        MIN_AREA = 2000
+        MIN_AREA = 1000
         if cv2.contourArea(cnt) >= MIN_AREA:
             # Use convex hull to produce a clean filled mask of the instrument
             hull = cv2.convexHull(cnt)
@@ -82,9 +84,7 @@ def build_instrument_mask(imageBGR):
 
             return refined
 
-    # Fallback: return the cleaned mask if no sufficiently large contour found
     return mask
-
 
 def create_controls():
     # Create a small controls window with sliders for live tuning
@@ -108,21 +108,23 @@ def create_controls():
     cv2.createTrackbar('MinHits', 'Controls', MIN_HITS, 15, lambda x: None)
     cv2.createTrackbar('MinGoodLen', 'Controls', MIN_GOOD_LENGTH, 300, lambda x: None)
 
-
+""" Find the left and right boundaries of the instrument 
+        input: binary mask of the instrument body in the region of interest and quantiles to ignore outliers
+        output: x-coordinates of the left and right edges of the instrument (or None if not found) """
 def estimate_x_limits_from_mask(mask_roi, left_q=0.05, right_q=0.98):
-    # Find the left and right boundaries of the instrument
-    xs = np.where(mask_roi > 0)[1]
-    if xs.size == 0:
+    pixels = np.where(mask_roi > 0)[1]
+    if pixels.size == 0:
         return None, None
-    x_left = int(np.quantile(xs, left_q))
-    x_right = int(np.quantile(xs, right_q))
+    x_left = int(np.quantile(pixels, left_q))
+    x_right = int(np.quantile(pixels, right_q))
     if x_right <= x_left:
         return None, None
     return x_left, x_right
 
-
+""" Ensure lines do not draw outside the detected instrument body
+        input: line coordinates and x-limits
+        output: line coordinates clipped to the x-limits """
 def clip_line_to_x(line, x_left, x_right):
-    # Ensure lines do not draw outside the detected instrument body
     x1, y1, x2, y2 = line
     dx = x2 - x1
     dy = y2 - y1
@@ -137,9 +139,10 @@ def clip_line_to_x(line, x_left, x_right):
 
     return [x_left, y_left, x_right, y_right]
 
-
+""" Check if the detected lines meet the minimum length requirements
+        input: list of line coordinates, expected number of strings, minimum length for a line to be considered good
+        output: boolean indicating if the detection is good enough to update the tracker """
 def is_good_detection(lines, n_strings, min_len):
-    # Check if the detected lines meet the minimum length requirements
     if len(lines) < n_strings:
         return False
 
@@ -150,7 +153,6 @@ def is_good_detection(lines, n_strings, min_len):
     good = sum(1 for L in lengths if L >= min_len)
     return good >= n_strings
 
-
 class StringTracker:
     # Memory tracker to ensure strings are stable over multiple frames
     def __init__(self, n_strings, history, y_bin, min_hits):
@@ -160,15 +162,19 @@ class StringTracker:
         self.min_hits = min_hits
         self.frames = deque(maxlen=history)
 
-    def update(self, lines):
-        binned = []
+    """ Update the tracker with new detected lines
+        aligning them to y-bins for stability analysis"""
+    def update_lines(self, lines):
+        aligned_lines = []
         for x1, y1, x2, y2 in lines:
             y_mid = int(0.5 * (y1 + y2))
             yb = int(round(y_mid / self.y_bin)) * self.y_bin
             length = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-            binned.append((yb, length, [x1, y1, x2, y2]))
-        self.frames.append(binned)
+            aligned_lines.append((yb, length, [x1, y1, x2, y2]))
+        self.frames.append(aligned_lines)
 
+    """ Analyze the history of detected lines to find stable candidates
+        that appear consistently over multiple frames"""
     def get_stable(self):
         if not self.frames:
             return []
@@ -212,7 +218,9 @@ class StringTracker:
 
 tracker = StringTracker(N_STRINGS, HISTORY, Y_BIN, MIN_HITS)
 
-
+""" Main function to detect strings in the bottom part of the frame using
+    input: full camera frame, brightness threshold for edge detection, fraction of the frame to analyze from the bottom, and whether to update the tracker
+    output: list of stable string line coordinates, thresholded debug image, and all detected horizontal line candidates for debugging """
 def detect_strings_bottom(frame, brightness_thresh=43, bottom_fraction=0.5, update_tracker=True):
     global last_stable
 
@@ -221,7 +229,7 @@ def detect_strings_bottom(frame, brightness_thresh=43, bottom_fraction=0.5, upda
     bottom_frame = frame[start_row:, :]
 
     # Extract mask and body boundaries
-    inst_mask = build_instrument_mask_roi(bottom_frame)
+    inst_mask = build_instrument_mask(bottom_frame)
     x_left, x_right = estimate_x_limits_from_mask(inst_mask)
 
     gray = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2GRAY)
@@ -302,7 +310,6 @@ def detect_strings_bottom(frame, brightness_thresh=43, bottom_fraction=0.5, upda
     # Return the final stable lines, the thresholded debug image,
     # and all detected horizontal line candidates for debugging
     return out, thresh, horizontal_lines
-
 
 def main():
     cap = cv2.VideoCapture(0)
@@ -414,7 +421,6 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
-
 
 if __name__ == "__main__":
     main()
