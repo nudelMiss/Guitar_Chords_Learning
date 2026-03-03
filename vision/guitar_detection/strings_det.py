@@ -295,7 +295,7 @@ def detect_strings_bottom(frame, brightness_thresh=43, bottom_fraction=0.5, upda
 
     if is_good_detection(horizontal_lines, N_STRINGS, MIN_GOOD_LENGTH):
         if update_tracker:
-            tracker.update(horizontal_lines)
+            tracker.update_lines(horizontal_lines)
         stable = tracker.get_stable()
         if len(stable) >= N_STRINGS:
             last_stable = stable[:N_STRINGS]
