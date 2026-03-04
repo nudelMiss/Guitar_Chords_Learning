@@ -6,10 +6,6 @@ import string_and_frets as sf
 
 
 def _current_locked_model_from_tracked_corners(tracked_corners):
-    """
-    tracked_corners: numpy array shape (4,2) points [tl,tr,bl,br]
-    Returns dict: x_min, x_max, y_t, y_b
-    """
     xs = tracked_corners[:, 0]
     ys = tracked_corners[:, 1]
     return {
@@ -20,11 +16,7 @@ def _current_locked_model_from_tracked_corners(tracked_corners):
     }
 
 
-def get_dot_coordinates(fret_num, string_num, tracked_corners, fret_model_rel, string_model_rel):
-    """
-    Convert (fret_num, string_num) -> pixel (x,y) on CURRENT tracked neck.
-    tracked_corners: (4,2) points tl,tr,bl,br
-    """
+def get_dot_coordinates(fret_num, string_num, tracked_corners, fret_model_rel, string_model_rel, mirror_frets=True):
     if not fret_model_rel or not string_model_rel:
         return -1, -1
     if string_num < 1 or string_num > 6:
@@ -34,14 +26,17 @@ def get_dot_coordinates(fret_num, string_num, tracked_corners, fret_model_rel, s
 
     tl, tr, bl, br = tracked_corners[0], tracked_corners[1], tracked_corners[2], tracked_corners[3]
 
-    # Y from strings
-    rel_y = float(string_model_rel[string_num - 1])
+    # --- Strings direction (leave as-is if already correct in your system) ---
+    rel_y = float(string_model_rel[6 - string_num])  # keep if needed for your camera/string order
 
-    # X in the middle of the fret cell
-    if fret_num == 1:
+    # --- Mirror frets left-right if camera is mirrored ---
+    num_frets = len(fret_model_rel)
+    use_fret = (num_frets - fret_num + 1) if mirror_frets else fret_num
+
+    if use_fret == 1:
         rel_x = float(fret_model_rel[0]) / 2.0
     else:
-        rel_x = (float(fret_model_rel[fret_num - 1]) + float(fret_model_rel[fret_num - 2])) / 2.0
+        rel_x = (float(fret_model_rel[use_fret - 1]) + float(fret_model_rel[use_fret - 2])) / 2.0
 
     top_point = tl + rel_x * (tr - tl)
     bot_point = bl + rel_x * (br - bl)
@@ -53,7 +48,6 @@ def get_dot_coordinates(fret_num, string_num, tracked_corners, fret_model_rel, s
 def main():
     cap = cv2.VideoCapture(0)
 
-    # State
     is_tracking = False
     is_strings_calibrated = False
 
@@ -65,19 +59,20 @@ def main():
     fret_model_rel = []
     string_model_rel = []
 
-    # Chord selection (non-blocking)
     available_chords = Chords.list_available_chords()
     available_chords.sort()
     chord_idx = 0
     current_chord_name = None
     current_chord_data = None
 
-    print("--- Central System (Python 3.8 safe) ---")
+    print("--- Central System ---")
     print("Commands:")
     print("  [c] Lock Neck")
-    print("  [s] Calibrate Strings (requires tracking)")
-    print("  [a] Next chord, [z] Prev chord, [x] Clear chord")
-    print("  [r] Reset All, [q] Quit")
+    print("  [s] Calibrate Strings (while tracking)")
+    print("  [x] Reset Strings only")
+    print("  [r] Reset All")
+    print("  [a] Next chord, [z] Prev chord, [v] Clear chord")
+    print("  [q] Quit")
 
     while True:
         ret, frame = cap.read()
@@ -93,6 +88,7 @@ def main():
         if key == ord('q'):
             break
 
+        # Reset ALL
         if key == ord('r'):
             is_tracking = False
             is_strings_calibrated = False
@@ -108,7 +104,13 @@ def main():
             cv2.imshow("Guitar Learning - Central System", display_frame)
             continue
 
-        # Chord controls (no input() blocking)
+        # Reset STRINGS only (like original file)
+        if key == ord('x'):
+            string_model_rel = []
+            is_strings_calibrated = False
+            print("Strings cleared. Press [s] to calibrate again.")
+
+        # Chord controls
         if key == ord('a'):
             chord_idx = (chord_idx + 1) % len(available_chords)
             current_chord_name = available_chords[chord_idx]
@@ -121,7 +123,7 @@ def main():
             current_chord_data = Chords.get_chord_data(current_chord_name)
             print("Chord selected:", current_chord_name)
 
-        if key == ord('x'):
+        if key == ord('v'):
             current_chord_name = None
             current_chord_data = None
             print("Chord cleared.")
@@ -150,7 +152,6 @@ def main():
                     tracking_pts = cv2.transform(initial_pts, matrix)
                     last_gray = gray.copy()
 
-                    # transform calibration-time neck corners
                     corners = np.array(
                         [
                             [locked_model["x_min"], locked_model["y_t"]],
@@ -164,9 +165,9 @@ def main():
                     tracked_corners = cv2.transform(corners, matrix).reshape(-1, 2)
                     tl, tr, bl, br = tracked_corners[0], tracked_corners[1], tracked_corners[2], tracked_corners[3]
 
-                    # IMPORTANT FIX: strings calibration uses CURRENT tracked bounds
                     current_locked_model = _current_locked_model_from_tracked_corners(tracked_corners)
 
+                    # Calibrate strings anytime during tracking
                     if key == ord('s'):
                         detected = sf.detect_strings_in_neck(frame, current_locked_model)
                         if len(detected) == 6:
@@ -194,29 +195,31 @@ def main():
                     cv2.line(display_frame, tuple(tl.astype(int)), tuple(tr.astype(int)), (255, 0, 0), 2)
                     cv2.line(display_frame, tuple(bl.astype(int)), tuple(br.astype(int)), (255, 0, 0), 2)
 
-                    # Draw chord dots (only if strings calibrated)
+                    # Draw chord dots
                     if current_chord_data is not None and is_strings_calibrated:
                         for fret_num, string_num in current_chord_data["fingers"]:
                             x, y = get_dot_coordinates(
                                 fret_num, string_num,
                                 tracked_corners,
                                 fret_model_rel,
-                                string_model_rel
+                                string_model_rel,
+                                mirror_frets=True
                             )
                             if x >= 0 and y >= 0:
-                                cv2.circle(display_frame, (x, y), 12, (255, 120, 0), -1)
-                                cv2.circle(display_frame, (x, y), 13, (255, 255, 255), 1)
+                                cv2.circle(display_frame, (x, y), 7, (70, 180, 120), -1)
+                                cv2.circle(display_frame, (x, y), 8, (255, 255, 255), 1)
 
                     # HUD
                     if current_chord_name:
                         cv2.putText(display_frame, "Chord: {}".format(current_chord_name),
                                     (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2)
+
                     if not is_strings_calibrated:
                         cv2.putText(display_frame, "Press [s] to calibrate strings",
                                     (20, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
         # =========================
-        # PREVIEW / CALIBRATION MODE
+        # PREVIEW MODE
         # =========================
         else:
             raw_frets = sf.detect_frets_bottom(frame)
@@ -244,11 +247,10 @@ def main():
                     last_gray = gray.copy()
                     is_tracking = True
 
-                    # reset strings after new lock
-                    is_strings_calibrated = False
+                    # Reset strings after new lock
                     string_model_rel = []
-
-                    print("Neck locked. Now press [s] to calibrate strings.")
+                    is_strings_calibrated = False
+                    print("Neck locked. Press [s] to calibrate strings.")
 
             cv2.putText(display_frame, "Preview: press [c] to lock neck",
                         (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
