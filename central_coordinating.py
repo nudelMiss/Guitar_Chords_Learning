@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-
 import Chords
 import string_and_frets as sf
 

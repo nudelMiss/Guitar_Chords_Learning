@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Song Practice - Guitar AI</title>
+    <title>Song Practice - Guitar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
@@ -105,16 +105,40 @@
             toggleSidebar();
         }
 
+        // Adding Keyboard Support
+        // This allows you to use C, S, R, X keys directly on the website
+        document.addEventListener('keydown', function(event) {
+            const key = event.key.toLowerCase(); 
+            
+            // Check if the pressed key is one of our commands
+            if (['c', 's', 'r', 'x'].includes(key)) {
+                console.log("Keyboard command:", key);
+                sendCmd(key); 
+            }
+        });
+
+        // Update your existing sendCmd function to handle 'x' correctly
         function sendCmd(key) {
+            // Send the command to Flask
             fetch(`/send_command/${key}`);
-            if(key === 'c') document.getElementById('status-neck').innerText = "Neck: LOCKED";
+            
+            if(key === 'c') {
+                document.getElementById('status-neck').innerText = "Neck: LOCKED";
+            }
             if(key === 's') {
                 document.getElementById('status-strings').innerText = "Strings: CALIBRATED";
-                const btn = document.getElementById('start-btn');
-                btn.disabled = false;
-                btn.classList.replace('bg-stone-300', 'bg-green-600');
+                const startBtn = document.getElementById('start-btn');
+                startBtn.disabled = false;
+                startBtn.classList.replace('bg-stone-300', 'bg-green-600');
             }
-            if(key === 'r' || key === 'x') location.reload();
+            
+            if(key === 'r') {
+                location.reload(); 
+            }
+            if(key === 'x') {
+                document.getElementById('status-strings').innerText = "Strings: Waiting";
+                console.log("Strings cleared in UI, tracking continues.");
+            }
         }
     </script>
 </body>
