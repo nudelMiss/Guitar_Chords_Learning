@@ -59,6 +59,9 @@ def main():
     fret_model_rel = []
     string_model_rel = []
 
+    prev_tracked_corners = None
+    CORNER_SMOOTH_ALPHA = 0.7  # 0.6-0.85 (higher = smoother, more lag)
+
     available_chords = Chords.list_available_chords()
     available_chords.sort()
     chord_idx = 0
@@ -163,6 +166,14 @@ def main():
                     ).reshape(-1, 1, 2)
 
                     tracked_corners = cv2.transform(corners, matrix).reshape(-1, 2)
+                    # === CHANGE: smooth tracked corners to stabilize overlay ===
+                    if prev_tracked_corners is None:
+                        prev_tracked_corners = tracked_corners.copy()
+                    else:
+                        tracked_corners = (CORNER_SMOOTH_ALPHA * tracked_corners +
+                                        (1.0 - CORNER_SMOOTH_ALPHA) * prev_tracked_corners)
+                        prev_tracked_corners = tracked_corners.copy()
+                    # === END CHANGE ===
                     tl, tr, bl, br = tracked_corners[0], tracked_corners[1], tracked_corners[2], tracked_corners[3]
 
                     current_locked_model = _current_locked_model_from_tracked_corners(tracked_corners)
@@ -170,6 +181,7 @@ def main():
                     # Calibrate strings anytime during tracking
                     if key == ord('s'):
                         detected = sf.detect_strings_in_neck(frame, current_locked_model)
+                        prev_tracked_corners = None
                         if len(detected) == 6:
                             string_model_rel = detected
                             is_strings_calibrated = True
@@ -232,7 +244,20 @@ def main():
             if key == ord('c') and y_t is not None and len(raw_frets) > 2:
                 stable_f = sf.merge_vertical_lines(raw_frets)
                 if len(stable_f) >= 2:
-                    x_min, x_max = stable_f[0][0], stable_f[-1][0]
+                    # === CHANGE START: robust x_min/x_max (ignore outlier frets) ===
+                    xs = np.array([f[0] for f in stable_f], dtype=np.float32)
+
+                    x_min = int(np.percentile(xs, 5))
+                    x_max = int(np.percentile(xs, 95))
+
+                    # keep only frets inside [x_min, x_max]
+                    stable_f_in = [f for f in stable_f if x_min <= f[0] <= x_max]
+
+                    # fallback: if trimming removed too much, use original
+                    if len(stable_f_in) < 2:
+                        stable_f_in = stable_f
+                        x_min, x_max = stable_f[0][0], stable_f[-1][0]
+                    # === CHANGE END ===
 
                     grid_x = np.linspace(x_min, x_max, 10)
                     grid_y = np.linspace(y_t, y_b, 4)
@@ -242,10 +267,13 @@ def main():
                     tracking_pts = initial_pts.copy()
 
                     locked_model = {"x_min": x_min, "x_max": x_max, "y_t": y_t, "y_b": y_b}
-                    fret_model_rel = [(f[0] - x_min) / (x_max - x_min) for f in stable_f]
+
+                    # === CHANGE: use stable_f_in for the fret model ===
+                    fret_model_rel = [(f[0] - x_min) / (x_max - x_min) for f in stable_f_in]
 
                     last_gray = gray.copy()
                     is_tracking = True
+                    prev_tracked_corners = None
 
                     # Reset strings after new lock
                     string_model_rel = []

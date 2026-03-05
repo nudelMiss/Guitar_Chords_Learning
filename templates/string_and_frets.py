@@ -2,28 +2,55 @@ import cv2
 import numpy as np
 
 
-# --- 1. Classical Vision: Fret Detection (Untouched) ---
+# --- 1. Classical Vision: Fret Detection (Improved Threshold Stability) ---
 def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.4):
     height, width = frame.shape[:2]
     start_row = int(height * (1 - bottom_fraction))
     bottom_frame = frame[start_row:, :]
 
     gray = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2GRAY)
+
+    # Detect vertical edges (frets)
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
     sobelx = cv2.convertScaleAbs(sobelx)
-    _, thresh = cv2.threshold(sobelx, brightness_thresh, 255, cv2.THRESH_BINARY)
 
+    # === CHANGE: adaptive threshold using Otsu instead of fixed brightness_thresh ===
+    _, thresh = cv2.threshold(
+        sobelx,
+        0,
+        255,
+        cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+
+    # Morphological cleanup
     kernel = np.ones((3, 3), np.uint8)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-    lines = cv2.HoughLinesP(thresh, 1, np.pi / 180, 30, minLineLength=15, maxLineGap=5)
+    # Detect line segments
+    lines = cv2.HoughLinesP(
+        thresh,
+        1,
+        np.pi / 180,
+        30,
+        minLineLength=15,
+        maxLineGap=5
+    )
 
     vertical_lines = []
+
     if lines is not None:
         for l in lines:
             x1, y1, x2, y2 = l[0]
+
+            # Keep near-vertical lines only
             if abs(x2 - x1) < 5 and (y2 - y1) > 10:
-                vertical_lines.append([x1, y1 + start_row, x2, y2 + start_row])
+                vertical_lines.append([
+                    x1,
+                    y1 + start_row,
+                    x2,
+                    y2 + start_row
+                ])
+
     return vertical_lines
 
 
@@ -167,7 +194,7 @@ def main():
                 # Try to update the transformation only if enough points are tracked
                 if len(good_new) >= 6:
                     # Use RANSAC to find the neck's global movement and filter out hand motion
-                    matrix, inliers = cv2.estimateAffinePartial2D(good_old, good_new,
+                    matrix, inliers = cv2.estimateAffine2D(good_old, good_new,
                                                                   method=cv2.RANSAC,
                                                                   ransacReprojThreshold=3)
 
