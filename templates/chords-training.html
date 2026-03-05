@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chord Training - AI Guitar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Rubik', sans-serif; }</style>
+</head>
+<body class="bg-stone-50 text-stone-900 min-h-screen">
+
+    <nav class="p-6 flex justify-between items-center bg-white shadow-sm">
+        <h1 class="text-2xl font-black text-amber-700">GUITAR AI</h1>
+        <a href="index.html" class="text-stone-500 hover:text-stone-800 font-bold">← Back to Home</a>
+    </nav>
+
+    <main class="container mx-auto px-6 py-12 grid md:grid-cols-3 gap-10">
+        
+        <div class="space-y-8">
+            <section class="bg-white p-8 rounded-3xl shadow-lg border-b-4 border-amber-500">
+                <h2 class="text-2xl font-bold mb-4">Step 1: Calibration</h2>
+                <p class="text-stone-600 mb-4">Make sure your guitar neck is clearly visible to the camera.</p>
+                <button onclick="startCalibration()" class="w-full py-3 bg-amber-100 text-amber-700 rounded-xl font-bold border-2 border-amber-200 hover:bg-amber-200 transition-all">
+                    Start Calibration
+                </button>
+            </section>
+
+            <section class="bg-white p-8 rounded-3xl shadow-lg border-b-4 border-stone-300">
+                <h2 class="text-2xl font-bold mb-4">Step 2: Choose a Chord</h2>
+                <div class="grid grid-cols-3 gap-3">
+                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">C</button>
+                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">G</button>
+                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">D</button>
+                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">Am</button>
+                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">Em</button>
+                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">F</button>
+                </div>
+            </section>
+        </div>
+
+        <div class="md:col-span-2 space-y-6">
+            <div class="relative bg-black rounded-[2.5rem] overflow-hidden shadow-2xl aspect-video border-8 border-white">
+                <img src="/static/images/camera_placeholder.jpg" class="w-full h-full object-cover opacity-50" alt="Camera Feed">
+                
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <p class="text-white font-bold bg-black/40 px-6 py-2 rounded-full backdrop-blur-md">Waiting for camera...</p>
+                </div>
+
+                <div class="absolute top-6 right-6 bg-green-500 text-white px-6 py-3 rounded-2xl font-black text-xl shadow-lg animate-pulse hidden" id="feedback-ok">
+                    EXCELLENT!
+                </div>
+            </div>
+
+            <div class="bg-amber-50 p-6 rounded-2xl border-l-8 border-amber-400">
+                <h3 class="font-bold text-amber-900">Pro Tip:</h3>
+                <p class="text-amber-800">Press firmly with your fingertips and keep your thumb behind the neck for a cleaner sound.</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Placeholder for calibration logic
+        function startCalibration() {
+            console.log("Calibration started...");
+            alert("Please hold your guitar still for 3 seconds.");
+        }
+    </script>
+</body>
+</html>
