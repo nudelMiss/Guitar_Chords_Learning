@@ -7,24 +7,26 @@ import math
 from collections import deque
 
 # ===== Instrument mask calibration =====
+# CALIBRATION: These values are a starting point for a typical ukulele. 
+# You may need to adjust them based on your lighting and instrument color.
 LOWER_INST = np.array([0, 57, 60], dtype=np.uint8)
 UPPER_INST = np.array([166, 241, 245], dtype=np.uint8)
-K_OPEN = 0
+K_OPEN = 1
 K_CLOSE = 21
 
-# ===== Tracking / stability =====
-N_STRINGS = 4          # 4 for ukulele / 6 for guitar
-HISTORY = 15           # INCREASED: Keep more frames in memory for better stability
-Y_BIN = 6
-MIN_HITS = 5          # INCREASED: Require the string to appear more times to be considered stable
-MIN_GOOD_LENGTH = 180  # minimum string length to consider "good"
-
+# ==== Auto V calibration =====
 AUTO_V = True
 V_MARGIN_LOW = 55
 V_MARGIN_HIGH = 80
 
-last_stable = []
+# ===== Tracking / stability =====
+N_STRINGS = 5          # 4 for ukulele / 6 for guitar
+HISTORY = 15           # INCREASED: Keep more frames in memory for better stability
+Y_BIN = 9              # INCREASED: Larger bins to allow for more variation in string position across frames
+MIN_HITS = 7          # INCREASED: Require the string to appear more times to be considered stable
+MIN_GOOD_LENGTH = 180  # minimum string length to consider "good"
 
+last_stable = []
 
 def angle_deg(x1, y1, x2, y2):
     # Calculate the angle between two points
