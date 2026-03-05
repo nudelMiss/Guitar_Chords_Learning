@@ -155,45 +155,62 @@ def main():
                 print(f"Failed: Only {len(detected)} strings found. Need exactly 6.")
 
         if is_tracking and tracking_pts is not None:
-            # --- TRACKING ENGINE ---
-            new_pts, status, _ = cv2.calcOpticalFlowPyrLK(last_gray, gray, tracking_pts, None)
-            good_new = new_pts[status.flatten() == 1]
-            good_old = initial_pts[status.flatten() == 1]
+            if is_tracking and tracking_pts is not None:
+                # --- TRACKING ENGINE (Updated for Stability) ---
+                new_pts, status, _ = cv2.calcOpticalFlowPyrLK(last_gray, gray, tracking_pts, None)
+                good_new = new_pts[status.flatten() == 1]
+                good_old = initial_pts[status.flatten() == 1]
 
-            if len(good_new) >= 4:
-                # Robust Affine Transformation
-                matrix, _ = cv2.estimateAffinePartial2D(good_old, good_new, method=cv2.RANSAC, ransacReprojThreshold=3)
+                # Initialize a persistent matrix in the model to avoid flickering
+                if 'last_matrix' not in locked_model:
+                    locked_model['last_matrix'] = np.array([[1, 0, 0], [0, 1, 0]], dtype=np.float32)
+                # Try to update the transformation only if enough points are tracked
+                if len(good_new) >= 6:
+                    # Use RANSAC to find the neck's global movement and filter out hand motion
+                    matrix, inliers = cv2.estimateAffinePartial2D(good_old, good_new,
+                                                                  method=cv2.RANSAC,
+                                                                  ransacReprojThreshold=3)
 
-                if matrix is not None:
-                    tracking_pts = cv2.transform(initial_pts, matrix)
-                    last_gray = gray.copy()
+                    if matrix is not None:
+                        # Consensus Check: How many points agree on this specific transformation?
+                        inlier_ratio = np.sum(inliers) / len(good_new)
 
-                    # Transform neck corners
-                    corners = np.array([
-                        [locked_model['x_min'], locked_model['y_t']],
-                        [locked_model['x_max'], locked_model['y_t']],
-                        [locked_model['x_min'], locked_model['y_b']],
-                        [locked_model['x_max'], locked_model['y_b']]
-                    ], dtype=np.float32).reshape(-1, 1, 2)
+                        # Only update the scale/position if more than 50% of points move together
+                        # This prevents the hand from distorting the fretboard scale
+                        if inlier_ratio > 0.5:
+                            locked_model['last_matrix'] = matrix
+                            tracking_pts = cv2.transform(initial_pts, matrix)
+                            last_gray = gray.copy()
 
-                    tracked_corners = cv2.transform(corners, matrix).reshape(-1, 2)
-                    tl, tr, bl, br = tracked_corners[0], tracked_corners[1], tracked_corners[2], tracked_corners[3]
+                # Always use the last validated matrix for drawing (prevents grid from disappearing)
+                curr_matrix = locked_model['last_matrix']
 
-                    # 1. Draw Frets (Green)
-                    for rel_x in fret_model_rel:
-                        p1 = (tl + rel_x * (tr - tl)).astype(int)
-                        p2 = (bl + rel_x * (br - bl)).astype(int)
-                        cv2.line(display_frame, tuple(p1), tuple(p2), (0, 255, 0), 2)
+                # Transform neck corners
+                corners = np.array([
+                    [locked_model['x_min'], locked_model['y_t']],
+                    [locked_model['x_max'], locked_model['y_t']],
+                    [locked_model['x_min'], locked_model['y_b']],
+                    [locked_model['x_max'], locked_model['y_b']]
+                ], dtype=np.float32).reshape(-1, 1, 2)
 
-                    # 2. Draw Strings (Yellow)
-                    for rel_y in string_model_rel:
-                        p1 = (tl + rel_y * (bl - tl)).astype(int)
-                        p2 = (tr + rel_y * (br - tr)).astype(int)
-                        cv2.line(display_frame, tuple(p1), tuple(p2), (0, 255, 255), 1)
+                tracked_corners = cv2.transform(corners, curr_matrix).reshape(-1, 2)
+                tl, tr, bl, br = tracked_corners[0], tracked_corners[1], tracked_corners[2], tracked_corners[3]
 
-                    # 3. Draw Neck Boundaries (Blue)
-                    cv2.line(display_frame, tuple(tl.astype(int)), tuple(tr.astype(int)), (255, 0, 0), 2)
-                    cv2.line(display_frame, tuple(bl.astype(int)), tuple(br.astype(int)), (255, 0, 0), 2)
+                # 1. Draw Frets (Green)
+                for rel_x in fret_model_rel:
+                    p1 = (tl + rel_x * (tr - tl)).astype(int)
+                    p2 = (bl + rel_x * (br - bl)).astype(int)
+                    cv2.line(display_frame, tuple(p1), tuple(p2), (0, 255, 0), 2)
+
+                # 2. Draw Strings (Yellow)
+                for rel_y in string_model_rel:
+                    p1 = (tl + rel_y * (bl - tl)).astype(int)
+                    p2 = (tr + rel_y * (br - tr)).astype(int)
+                    cv2.line(display_frame, tuple(p1), tuple(p2), (0, 255, 255), 1)
+
+                # 3. Draw Neck Boundaries (Blue)
+                cv2.line(display_frame, tuple(tl.astype(int)), tuple(tr.astype(int)), (255, 0, 0), 2)
+                cv2.line(display_frame, tuple(bl.astype(int)), tuple(br.astype(int)), (255, 0, 0), 2)
 
             # Display pop-up alert if string count is wrong
             if show_string_error:
