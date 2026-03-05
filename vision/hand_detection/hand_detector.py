@@ -1,14 +1,27 @@
 import cv2
 import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 import numpy as np
+import os
 
 FINGERTIP_IDS = {
-    "thumb": 4,
+    # "thumb": 4,
     "index": 8,
     "middle": 12,
     "ring": 16,
     "pinky": 20,
 }
+
+# Hand connection pairs for drawing
+HAND_CONNECTIONS = [
+    (0, 1), (1, 2), (2, 3), (3, 4),
+    (0, 5), (5, 6), (6, 7), (7, 8),
+    (5, 9), (9, 10), (10, 11), (11, 12),
+    (9, 13), (13, 14), (14, 15), (15, 16),
+    (13, 17), (17, 18), (18, 19), (19, 20),
+    (0, 17), (17, 13), (13, 9), (9, 5),
+]
 
 class _EMA:
     def __init__(self, alpha=0.6):
@@ -26,14 +39,18 @@ class _EMA:
 
 class HandDetector:
     def __init__(self, max_hands=1, detection_conf=0.6, tracking_conf=0.6):
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=max_hands,
-            model_complexity=1,
-            min_detection_confidence=detection_conf,
+        # path to mediapipe model
+        here = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(here, "models", "hand_landmarker.task")
+        base_options = python.BaseOptions(model_asset_path=model_path)
+        options = vision.HandLandmarkerOptions(
+            base_options=base_options,
+            num_hands=max_hands,
+            min_hand_detection_confidence=detection_conf,
+            min_hand_presence_confidence=tracking_conf,
             min_tracking_confidence=tracking_conf,
         )
+        self.hand_landmarker = vision.HandLandmarker.create_from_options(options)
         self._ema = {name: _EMA(alpha=0.6) for name in FINGERTIP_IDS}
 
         self.last_landmarks_px = None
@@ -42,18 +59,23 @@ class HandDetector:
     def detect_fingers_and_frets(self, frame_bgr):
         h, w = frame_bgr.shape[:2]
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        res = self.hands.process(rgb)
+        
+        # Convert to MediaPipe Image format
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        
+        # Detect hand landmarks
+        results = self.hand_landmarker.detect(mp_image)
 
         self.last_landmarks_px = None
         self.last_fingertips_px = None
 
-        if not res.multi_hand_landmarks:
+        if not results.hand_landmarks:
             return 0, []
 
-        hand_lms = res.multi_hand_landmarks[0]
+        hand_lms = results.hand_landmarks[0]
 
         pts = []
-        for lm in hand_lms.landmark:
+        for lm in hand_lms:
             pts.append((int(lm.x * w), int(lm.y * h)))
         self.last_landmarks_px = pts
 
@@ -73,7 +95,7 @@ class HandDetector:
         out = frame_bgr.copy()
 
         # draw connections
-        for a, b in self.mp_hands.HAND_CONNECTIONS:
+        for a, b in HAND_CONNECTIONS:
             xa, ya = self.last_landmarks_px[a]
             xb, yb = self.last_landmarks_px[b]
             cv2.line(out, (xa, ya), (xb, yb), (255, 255, 255), 2)
@@ -87,6 +109,6 @@ class HandDetector:
             for (name, x, y) in self.last_fingertips_px:
                 cv2.circle(out, (x, y), 8, (255, 0, 0), -1)
                 cv2.putText(out, name, (x + 6, y - 6),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
         return out

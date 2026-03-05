@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 import cv2
-from hand_detector import HandDetector
-
+# from hand_detector import HandDetector
+from fingers_detector import HandDetector
 
 def main():
-    hd = HandDetector(max_hands=1, detection_conf=0.6, tracking_conf=0.6)
-
-    cap = cv2.VideoCapture(1, cv2.CAP_AVFOUNDATION)  # macOS friendly
+    hd = HandDetector(
+        x_crop_left=0.10,
+        x_crop_right=0.28,   # BIG: cut away guitar body / right hand area
+        y_margin=35,         # tighter band around strings
+        near_string_px=14,   # fingertip must be close to a string
+        ema_alpha=0.45,      # less lag
+    )
+    cap = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)  # macOS friendly
     if not cap.isOpened():
         print("No camera available")
         return
