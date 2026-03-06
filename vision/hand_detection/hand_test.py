@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 import cv2
-# from hand_detector import HandDetector
-from fingers_detector import HandDetector
+from hand_detector import HandDetector
+
 
 def main():
-    hd = HandDetector(
-        x_crop_left=0.10,
-        x_crop_right=0.28,   # BIG: cut away guitar body / right hand area
-        y_margin=35,         # tighter band around strings
-        near_string_px=14,   # fingertip must be close to a string
-        ema_alpha=0.45,      # less lag
-    )
+    hd = HandDetector(max_hands=1, detection_conf=0.6, tracking_conf=0.6)
+
     cap = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)  # macOS friendly
     if not cap.isOpened():
         print("No camera available")
@@ -28,13 +23,18 @@ def main():
 
         num, tips = hd.detect_fingers_and_frets(frame)
 
+        # remove thumb from the returned tips
+        tips = [(name, x, y) for (name, x, y) in tips if name != "thumb"]
+        num = len(tips)
+
+        # keep only non-thumb fingertips for drawing/debug
+        hd.last_fingertips_px = tips
+
         vis = hd.draw_debug(frame)
         cv2.putText(vis, f"tips: {num}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
 
-        # Print tips (you will map these to fretboard later)
-        # tips = [(name, x, y), ...]
-        # comment this out if spammy:
+        # optional:
         # print(tips)
 
         cv2.imshow("camera (MediaPipe fingertips)", vis)
