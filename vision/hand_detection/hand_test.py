@@ -6,7 +6,7 @@ from hand_detector import HandDetector
 def main():
     hd = HandDetector(max_hands=1, detection_conf=0.6, tracking_conf=0.6)
 
-    cap = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)  # macOS friendly
+    cap = cv2.VideoCapture(0)  # WinOS friendly
     if not cap.isOpened():
         print("No camera available")
         return
