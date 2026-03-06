@@ -8,7 +8,7 @@
     html { scroll-behavior: smooth; }
 </style>
 
-<section class="h-screen w-full bg-no-repeat bg-cover bg-center flex flex-col justify-center items-center relative" style="background-image: url(https://i.pinimg.com/1200x/ad/c6/47/adc647dfb2047ac05da195d4a0d6020e.jpg) ;">
+<section class="h-screen w-full bg-no-repeat bg-cover bg-center flex flex-col justify-center items-center relative" style="background-image: url(https://i.pinimg.com/1200x/ad/c6/47/adc647dfb2047ac05da195d4a0d6020e.jpg);">
     
     <h1 class="text-7xl font-black mb-4 text-amber-800 [-webkit-text-stroke:2px_white]">
         PLAY GUITAR
@@ -29,66 +29,82 @@
 
     <div class="container mx-auto px-6 relative z-10">
         
-        <h2 class="text-4xl md:text-5xl font-bold text-center text-amber-900 mb-16">
-            איך זה עובד?
-        </h2>
+        <div class="container mx-auto px-6 relative z-10">
+            <h2 class="text-5xl font-black text-center text-amber-900 mb-12">
+                How do you want to learn?
+            </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-
-            <div class="bg-white rounded-[2rem] p-10 shadow-xl border-t-4 border-amber-600 hover:-translate-y-2 transition-transform duration-300 flex flex-col items-center text-center group">
-                <div class="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-6 group-hover:bg-amber-600 transition-colors duration-300">
-                    <span class="text-4xl group-hover:text-white transition-colors duration-300">👁️</span>
+            <div class="flex justify-center mb-16">
+                <div class="inline-flex p-2 bg-white/50 backdrop-blur-sm rounded-3xl shadow-xl border border-amber-100">
+                    <button onclick="showMode('chords')" id="btn-chords" class="mode-btn active px-10 py-4 rounded-2xl font-bold text-xl transition-all duration-300 bg-amber-600 text-white shadow-lg">
+                        🎸 Learn Chords
+                    </button>
+                    <button onclick="showMode('songs')" id="btn-songs" class="mode-btn px-10 py-4 rounded-2xl font-bold text-xl transition-all duration-300 text-amber-800 hover:bg-amber-100">
+                        🎶 Play Songs
+                    </button>
                 </div>
-                
-                <h3 class="text-2xl font-bold text-gray-800 mb-4">זיהוי ותיקון בזמן אמת</h3>
-                <p class="text-gray-600 leading-relaxed">
-                    המערכת שלנו "רואה" את האצבעות שלך דרך המצלמה.
-                    <br><br>
-                    אם טעית באצבוע או במיתר, אנחנו נגיד לך בדיוק מה לתקן – ממש כמו מורה שיושב לידך.
-                </p>
             </div>
 
-            <div class="bg-white rounded-[2rem] p-10 shadow-xl border-t-4 border-yellow-500 hover:-translate-y-2 transition-transform duration-300 flex flex-col items-center text-center group">
-                <div class="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mb-6 group-hover:bg-yellow-500 transition-colors duration-300">
-                    <span class="text-4xl group-hover:text-white transition-colors duration-300">🎶</span>
-                </div>
+            <div class="max-w-5xl mx-auto">
                 
-                <h3 class="text-2xl font-bold text-gray-800 mb-4">נגינת שירים אהובים</h3>
-                <p class="text-gray-600 leading-relaxed">
-                    אין דרך טובה יותר ללמוד מאשר לנגן את מה שאוהבים.
-                    <br><br>
-                    בחרי שיר מהמאגר, והמערכת תלווה אותך אקורד אחרי אקורד עד שתנגני אותו מושלם.
-                </p>
-            </div>
-
-            <div class="bg-white rounded-[2rem] p-10 shadow-xl border-t-4 border-orange-500 hover:-translate-y-2 transition-transform duration-300 flex flex-col items-center text-center group">
-                <div class="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mb-6 group-hover:bg-orange-500 transition-colors duration-300">
-                    <span class="text-4xl group-hover:text-white transition-colors duration-300">🚀</span>
+                <div id="mode-chords" class="mode-content grid md:grid-cols-2 gap-12 items-center bg-white rounded-[3rem] p-12 shadow-2xl border-b-8 border-amber-600 animate-fadeIn">
+    
+                    <div class="space-y-6">
+                        <h3 class="text-4xl font-black text-gray-800">Chord Practice with Live Feedback</h3>
+                        <p class="text-xl text-gray-700 leading-relaxed font-medium">
+                            Master every chord with computer vision. Our system monitors your hand position and gives you instant corrections.
+                        </p>
+                        
+                        <a href="{{ url_for('chords_training') }}">
+                            <button class="px-10 py-4 bg-amber-600 text-white rounded-full font-bold text-xl hover:bg-amber-700 transition-all transform hover:scale-105 shadow-lg">
+                                Start Chord Training
+                            </button>
+                        </a>
+                    </div>
+                    
+                    <div class="bg-amber-50">
+                        <img src="static/images/guitar-chord.jpg" alt="Chord Practice" class="max-h-full max-w-full object-contain rounded-2xl shadow-sm">     
+                    </div>
                 </div>
-                
-                <h3 class="text-2xl font-bold text-gray-800 mb-4">מעקב התקדמות</h3>
-                <p class="text-gray-600 leading-relaxed">
-                    אנחנו זוכרים איפה התקשית ואיפה הצטיינת.
-                    <br><br>
-                    קבל משוב בסוף כל אימון וראה איך אתה משתפר מיום ליום בדרך להיות גיטריסט על.
-                </p>
-               
-            </div>
 
+                <div id="mode-songs" class="mode-content hidden grid md:grid-cols-2 gap-12 items-center bg-white rounded-[3rem] p-12 shadow-2xl border-b-8 border-yellow-500 animate-fadeIn">
+                    <div class="space-y-6">
+                        <h3 class="text-4xl font-black text-gray-800">Play Along to the Rhythm</h3>
+                        <p class="text-xl text-gray-600 leading-relaxed">
+                            Learn your favorite hits by following the beat. The chords appear on your screen exactly when you need to play them.
+                        </p>
+                        <a href="{{ url_for('song_practice') }}" class="inline-block mt-4 px-8 py-4 bg-yellow-500 text-white rounded-full font-bold text-lg hover:bg-yellow-600 transition-all transform hover:scale-105">
+                            Choose a Song
+                        </a>
+                    </div>
+                    <div class="bg-yellow-50">
+                        <img src="static/images/learn-song.jpeg" alt="Chord Practice" class="max-h-full max-w-full object-contain rounded-2xl shadow-sm">
+                    </div>
+                </div>
+
+            </div>
         </div>
-        <div class="mt-20 flex flex-col md:flex-row justify-center items-center gap-8 pb-20">
-        
-            <a href="/learn-chords" class="group relative px-8 py-4 bg-amber-600 hover:bg-amber-700 text-white text-xl font-bold rounded-full shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl flex items-center gap-3 min-w-[280px] justify-center">
-                <span class="text-2xl group-hover:rotate-12 transition-transform">🎸</span>
-                <span class="whitespace-nowrap">למד אקורדים (מתחילים)</span>
-            </a>
-    
-            <a href="/learn-songs" class="group relative px-8 py-4 bg-yellow-500 hover:bg-yellow-600 text-white text-xl font-bold rounded-full shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl flex items-center gap-3 min-w-[280px] justify-center">
-                <span class="text-2xl group-hover:rotate-12 transition-transform">🎶</span>
-                <span class="whitespace-nowrap">למד שירים</span>
-            </a>
-    
-        </div>
-    </div>
-    
-</section>
+    </section>
+
+    <script>
+        function showMode(mode) {
+            // Hide all content
+            document.querySelectorAll('.mode-content').forEach(el => el.classList.add('hidden'));
+            
+            // Show selected content
+            document.getElementById('mode-' + mode).classList.remove('hidden');
+            
+            // Update button styles
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('bg-amber-600', 'text-white', 'shadow-lg');
+                btn.classList.add('text-amber-800', 'hover:bg-amber-100');
+            });
+            
+            // Highlight active button
+            const activeBtn = document.getElementById('btn-' + mode);
+            activeBtn.classList.add('bg-amber-600', 'text-white', 'shadow-lg');
+            activeBtn.classList.remove('text-amber-800', 'hover:bg-amber-100');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Song Practice - Guitar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Rubik', sans-serif; overflow: hidden; }
+        .sidebar-transition { transition: transform 0.3s ease-in-out; }
+        .sidebar-hidden { transform: translateX(-100%); }
+    </style>
+</head>
+<body class="bg-stone-100 h-screen flex flex-col">
+
+    <header class="bg-white p-4 shadow-sm flex justify-between items-center z-10">
+        <button onclick="toggleSidebar()" class="flex items-center gap-2 px-5 py-2 bg-yellow-500 text-white rounded-xl font-bold hover:bg-yellow-600 transition-all shadow-md">
+            <span>☰</span> Open Song Menu
+        </button>
+        <div id="active-song" class="text-stone-800 font-bold text-lg">No song selected</div>
+        <div class="w-40"></div> 
+    </header>
+
+    <div class="py-6 flex justify-center">
+        <div id="instruction-banner" class="bg-stone-800 px-12 py-5 rounded-3xl border-b-4 border-yellow-500 shadow-xl text-center max-w-2xl transition-all">
+            <h3 class="text-white font-black text-2xl md:text-3xl uppercase tracking-wider mb-1">
+                HOLD GUITAR PARALLEL TO THE FLOOR
+            </h3>
+            <p class="text-yellow-400 font-bold text-lg italic">
+                Wait for the red lines to surround the neck
+            </p>
+        </div>
+    </div>
+
+    <div class="flex flex-1 px-8 pb-8 gap-8 min-h-0">
+        
+        <aside class="w-72 flex flex-col gap-4">
+            <div class="bg-white p-6 rounded-[2.5rem] shadow-xl border-t-8 border-yellow-500 h-full flex flex-col">
+                <h4 id="sidebar-title" class="text-center font-black text-stone-400 uppercase text-xs tracking-[0.2em] mb-6">Setup Process</h4>
+                
+                <div id="setup-controls" class="space-y-4">
+                    <div class="space-y-2">
+                        <button onclick="sendCmd('c')" class="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-xl hover:bg-red-700 transition-all shadow-lg active:scale-95">
+                            LOCK NECK (C)
+                        </button>
+                        <button onclick="sendCmd('r')" class="w-full py-3 bg-stone-100 text-stone-500 rounded-2xl font-bold hover:bg-stone-200 transition-all text-sm">
+                            RESET (R)
+                        </button>
+                    </div>
+
+                    <div class="h-px bg-stone-100 my-4"></div>
+
+                    <div class="space-y-2">
+                        <button onclick="sendCmd('s')" class="w-full py-5 bg-amber-500 text-white rounded-2xl font-black text-xl hover:bg-amber-600 transition-all shadow-lg active:scale-95">
+                            LOCK STRINGS (S)
+                        </button>
+                        <button onclick="sendCmd('x')" class="w-full py-3 bg-stone-100 text-stone-500 rounded-2xl font-bold hover:bg-stone-200 transition-all text-sm">
+                            CLEAR (X)
+                        </button>
+                    </div>
+                </div>
+
+                <div id="play-controls" class="hidden flex-1 flex flex-col items-center justify-center space-y-6">
+                    <div class="text-center">
+                        <p class="text-stone-400 font-bold text-sm uppercase tracking-widest mb-1">Playing</p>
+                        <p id="playing-song-name" class="text-2xl font-black text-yellow-600 leading-tight">-</p>
+                    </div>
+                    
+                    <div class="bg-stone-100 w-full rounded-2xl p-6 text-center shadow-inner border-2 border-stone-200">
+                        <p class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Current Chord</p>
+                        <p id="current-chord-display" class="text-6xl font-black text-stone-800">Ready</p>
+                    </div>
+                </div>
+
+                <div class="mt-auto pt-6 border-t border-stone-50">
+                    <button id="start-btn" onclick="startPractice()" disabled class="w-full py-6 bg-stone-300 text-white rounded-2xl font-black text-2xl cursor-not-allowed transition-all shadow-xl uppercase tracking-tighter">
+                        START
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <div class="flex-1 relative bg-black rounded-[4rem] overflow-hidden shadow-2xl border-[12px] border-white">
+            <img src="{{ url_for('video_feed') }}" class="w-full h-full object-cover" alt="Guitar Feed">
+            
+            <div class="absolute bottom-8 left-8 flex flex-col gap-2">
+                <div id="status-neck" class="bg-black/40 backdrop-blur-md text-white px-5 py-2 rounded-full text-xs font-bold border border-white/20 uppercase tracking-widest italic">Neck: Ready to lock</div>
+                <div id="status-strings" class="bg-black/40 backdrop-blur-md text-white px-5 py-2 rounded-full text-xs font-bold border border-white/20 uppercase tracking-widest italic">Strings: Waiting</div>
+            </div>
+        </div>
+    </div>
+
+    <aside id="song-sidebar" class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 sidebar-transition sidebar-hidden flex flex-col">
+        <div class="p-8 border-b flex justify-between items-center">
+            <h2 class="text-2xl font-black text-yellow-600">SONGS</h2>
+            <button onclick="toggleSidebar()" class="text-stone-300 hover:text-stone-900 text-3xl">&times;</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-2">
+            <button onclick="selectSong('Let It Be')" class="w-full text-left p-5 rounded-2xl hover:bg-yellow-50 font-bold text-stone-800 transition-all">Let It Be</button>
+            <button onclick="selectSong('Wonderwall')" class="w-full text-left p-5 rounded-2xl hover:bg-yellow-50 font-bold text-stone-800 transition-all">Wonderwall</button>
+            <button onclick="selectSong('Knocking On Heavens Door')" class="w-full text-left p-5 rounded-2xl hover:bg-yellow-50 font-bold text-stone-800 transition-all">Knocking On Heaven's Door</button>
+        </div>
+    </aside>
+
+    <div id="overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden opacity-0 transition-opacity"></div>
+
+    <script>
+        // State variables
+        let currentSong = null;
+        let areStringsCalibrated = false;
+        let isPlaying = false; // Tracks whether we are currently playing a song
+
+        function toggleSidebar() {
+            const sb = document.getElementById('song-sidebar');
+            const ov = document.getElementById('overlay');
+            sb.classList.toggle('sidebar-hidden');
+            ov.classList.toggle('hidden');
+            setTimeout(() => ov.classList.toggle('opacity-0'), 10);
+        }
+
+        function checkStartCondition() {
+            const startBtn = document.getElementById('start-btn');
+            
+            // Only update logic if we are NOT currently playing a song
+            if (!isPlaying) {
+                // The button is active ONLY if a song is selected AND strings are calibrated
+                if (currentSong !== null && areStringsCalibrated) {
+                    startBtn.disabled = false;
+                    startBtn.classList.replace('bg-stone-300', 'bg-green-600');
+                    startBtn.classList.remove('cursor-not-allowed');
+                    startBtn.classList.add('hover:bg-green-700');
+                } else {
+                    startBtn.disabled = true;
+                    startBtn.classList.replace('bg-green-600', 'bg-stone-300');
+                    startBtn.classList.add('cursor-not-allowed');
+                    startBtn.classList.remove('hover:bg-green-700');
+                }
+            }
+        }
+
+        function startPractice() {
+            const startBtn = document.getElementById('start-btn');
+            const setupControls = document.getElementById('setup-controls');
+            const playControls = document.getElementById('play-controls');
+            const sidebarTitle = document.getElementById('sidebar-title');
+            const instructionBanner = document.getElementById('instruction-banner');
+
+            if (!isPlaying) {
+                // --- SWITCH TO PLAY MODE ---
+                if (currentSong !== null && areStringsCalibrated) {
+                    isPlaying = true;
+                    
+                    // Hide setup buttons, show chord display
+                    setupControls.classList.add('hidden');
+                    playControls.classList.remove('hidden');
+                    
+                    // Update texts
+                    document.getElementById('playing-song-name').innerText = document.getElementById('active-song').innerText;
+                    sidebarTitle.innerText = "Song Mode";
+                    instructionBanner.classList.add('opacity-0'); // Fade out the top banner
+
+                    // Change button to 'CALIBRATE' (Amber color)
+                    startBtn.innerText = "CALIBRATE";
+                    startBtn.classList.replace('bg-green-600', 'bg-amber-500');
+                    startBtn.classList.replace('hover:bg-green-700', 'hover:bg-amber-600');
+
+                    // Notify Python server to start playing the song
+                    fetch(`/start_song/${currentSong}`);
+                }
+            } else {
+                // --- SWITCH TO CALIBRATION MODE ---
+                isPlaying = false;
+                
+                // Show setup buttons, hide chord display
+                setupControls.classList.remove('hidden');
+                playControls.classList.add('hidden');
+                
+                // Update texts
+                sidebarTitle.innerText = "Setup Process";
+                instructionBanner.classList.remove('opacity-0'); // Fade in the top banner
+
+                // Change button back to 'START' (Green color)
+                startBtn.innerText = "START";
+                startBtn.classList.replace('bg-amber-500', 'bg-green-600');
+                startBtn.classList.replace('hover:bg-amber-600', 'hover:bg-green-700');
+
+                // Notify Python server to stop the song
+                fetch('/stop_song');
+            }
+        }
+
+        function selectSong(name) {
+            document.getElementById('active-song').innerText = name;
+    
+            // Auto-generate a URL-friendly ID (e.g., "Let It Be" -> "let_it_be")
+            currentSong = name.toLowerCase()
+                                .replace(/'/g, '')       // Remove apostrophes
+                                .replace(/[\s\-]+/g, '_'); // Replace spaces and dashes with underscores
+            
+            // Check if we can enable the start button
+            checkStartCondition();
+            toggleSidebar();
+        }
+
+        // Adding Keyboard Support
+        document.addEventListener('keydown', function(event) {
+            // Only allow setup keyboard commands if we are NOT playing a song
+            if (!isPlaying) {
+                const key = event.key.toLowerCase(); 
+                if (['c', 's', 'r', 'x'].includes(key)) {
+                    console.log("Keyboard command:", key);
+                    sendCmd(key); 
+                }
+            }
+        });
+
+        function sendCmd(key) {
+            // Send the command to Flask
+            fetch(`/send_command/${key}`);
+            
+            if(key === 'c') {
+                document.getElementById('status-neck').innerText = "Neck: LOCKED";
+            }
+            if(key === 's') {
+                document.getElementById('status-strings').innerText = "Strings: CALIBRATED";
+                areStringsCalibrated = true;
+                checkStartCondition();
+            }
+            
+            if(key === 'r') {
+                location.reload(); 
+            }
+            if(key === 'x') {
+                document.getElementById('status-strings').innerText = "Strings: Waiting";
+                areStringsCalibrated = false;
+                checkStartCondition();
+            }
+        }
+    </script>
+</body>
+</html>

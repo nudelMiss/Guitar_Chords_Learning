@@ -1,8 +1,7 @@
 import cv2
 import numpy as np
 
-
-# --- 1. Classical Vision: Fret Detection (Improved Threshold Stability) ---
+# --- 1. Classical Vision: Fret Detection 
 def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.4):
     height, width = frame.shape[:2]
     start_row = int(height * (1 - bottom_fraction))
