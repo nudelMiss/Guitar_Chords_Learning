@@ -98,33 +98,25 @@ def merge_vertical_lines(lines, x_threshold=20):
 # --- 3. String Detection Logic ---
 def detect_strings_in_neck(frame, locked_model):
     """
-    Analyzes the horizontal intensity profile between neck bounds
-    to find the 6 guitar strings.
+    Calculates guitar string positions based solely on geometric distribution
+    between the neck boundaries (y_t and y_b).
+
+    This version ignores image processing and assumes the 6 strings are
+    evenly spaced, with String 6 at the top edge and String 1 at the bottom.
     """
-    y_t, y_b = locked_model['y_t'], locked_model['y_b']
-    x_min, x_max = locked_model['x_min'], locked_model['x_max']
 
-    neck_roi = frame[y_t:y_b, x_min:x_max]
-    if neck_roi.size == 0: return []
+    # 1. Validation: Ensure the neck model has valid boundaries
+    y_t = locked_model.get('y_t', 0)
+    y_b = locked_model.get('y_b', 0)
 
-    gray_neck = cv2.cvtColor(neck_roi, cv2.COLOR_BGR2GRAY)
-    gray_neck = cv2.GaussianBlur(gray_neck, (5, 5), 0)
+    # If the ROI is invalid (e.g., height is zero), return default distribution
+    if y_b <= y_t:
+        return [i / 5.0 for i in range(6)]
 
-    # Calculate average intensity per row
-    projection = cv2.reduce(gray_neck, 1, cv2.REDUCE_AVG).flatten()
-    num_rows = len(projection)
-    step = num_rows // 7
-    string_y_rel = []
-
-    # Search for dark peaks (valleys) in expected regions
-    for i in range(1, 7):
-        center = i * step
-        search_range = 12
-        low, high = max(0, center - search_range), min(num_rows, center + search_range)
-        search_area = projection[low:high]
-        if len(search_area) > 0:
-            local_min = np.argmin(search_area) + low
-            string_y_rel.append(local_min / num_rows)
+    # 2. Linear Distribution Calculation
+    # We divide the space into 5 equal gaps to place 6 strings.
+    # Resulting relative positions: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    string_y_rel = [i / 5.0 for i in range(6)]
 
     return string_y_rel
 
