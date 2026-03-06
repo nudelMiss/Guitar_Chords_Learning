@@ -40,6 +40,12 @@ def send_command(key):
         
     return "OK", 200
 
+@app.route('/play-song/<song_name>')
+def play_song(song_name):
+    # Pass the song ID to the new template so it knows which song to display
+    # You can later use this ID to load the specific chords for this song
+    return render_template('play-song.html', song_name=song_name)
+
 def generate_frames():
     global last_web_key
     
