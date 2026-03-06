@@ -8,7 +8,7 @@ from central_coordinating import GuitarSystem
 app = Flask(__name__)
 
 # Create the core system instance once
-guitar_ai = GuitarSystem() 
+guitar = GuitarSystem() 
 
 # Use a lock to ensure thread-safe operations when reading/writing the key command
 key_lock = threading.Lock()
