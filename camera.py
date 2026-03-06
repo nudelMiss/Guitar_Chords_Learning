@@ -1,5 +1,4 @@
 import cv2
-import numpy as np
 
 # --- 1. Imports from guitar files ---
 from vision.guitar_detection.fret_det import detect_frets_bottom

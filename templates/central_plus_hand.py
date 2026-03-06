@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from hand_detector import HandDetector
 import Chords
 import string_and_frets as sf
 
@@ -76,6 +77,9 @@ def main():
     print("  [a] Next chord, [z] Prev chord, [v] Clear chord")
     print("  [q] Quit")
 
+    # Initialize your hand detector with the desired confidence levels
+    hd = HandDetector(max_hands=1, detection_conf=0.6, tracking_conf=0.6)
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -84,6 +88,11 @@ def main():
         height, width = frame.shape[:2]
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         display_frame = frame.copy()
+
+        finger_coords = []
+
+        # Optional: Use your debug drawing if you want to see the hand skeleton
+        # display_frame = hd.draw_debug(display_frame)
 
         key = cv2.waitKey(1) & 0xFF
 
@@ -170,7 +179,7 @@ def main():
                         prev_tracked_corners = tracked_corners.copy()
                     else:
                         tracked_corners = (CORNER_SMOOTH_ALPHA * tracked_corners +
-                                        (1.0 - CORNER_SMOOTH_ALPHA) * prev_tracked_corners)
+                                           (1.0 - CORNER_SMOOTH_ALPHA) * prev_tracked_corners)
                         prev_tracked_corners = tracked_corners.copy()
                     # === END CHANGE ===
                     tl, tr, bl, br = tracked_corners[0], tracked_corners[1], tracked_corners[2], tracked_corners[3]
@@ -206,8 +215,27 @@ def main():
                     cv2.line(display_frame, tuple(tl.astype(int)), tuple(tr.astype(int)), (255, 0, 0), 2)
                     cv2.line(display_frame, tuple(bl.astype(int)), tuple(br.astype(int)), (255, 0, 0), 2)
 
+                    # --- 1. Lines 20-22 in your image (Keep these) ---
+                    cv2.line(display_frame, tuple(tl.astype(int)), tuple(tr.astype(int)), (255, 0, 0), 2)
+                    cv2.line(display_frame, tuple(bl.astype(int)), tuple(br.astype(int)), (255, 0, 0), 2)
+
+                    if is_strings_calibrated and current_chord_data is not None:
+                        num_tips, tips = hd.detect_fingers_and_frets(frame)
+                        finger_coords = [(x, y) for (name, x, y) in tips]
+
+                        display_frame = hd.draw_debug(display_frame)
+                    else:
+
+                        finger_coords = []
+
                     # Draw chord dots
                     if current_chord_data is not None and is_strings_calibrated:
+                        all_fingers_ok = True
+
+                    # Draw chord dots
+                    if current_chord_data is not None and is_strings_calibrated:
+                        all_fingers_ok = True
+
                         for fret_num, string_num in current_chord_data["fingers"]:
                             x, y = get_dot_coordinates(
                                 fret_num, string_num,
@@ -216,9 +244,28 @@ def main():
                                 string_model_rel,
                                 mirror_frets=True
                             )
+
                             if x >= 0 and y >= 0:
-                                cv2.circle(display_frame, (x, y), 7, (70, 180, 120), -1)
-                                cv2.circle(display_frame, (x, y), 8, (255, 255, 255), 1)
+                                # Validation logic using finger_coords from your HandDetector
+                                is_pressed = False
+                                for fx, fy in finger_coords:
+                                    dist = ((x - fx) ** 2 + (y - fy) ** 2) ** 0.5
+                                    if dist < 35:  # Hitbox radius
+                                        is_pressed = True
+                                        break
+
+                                # Green if finger is on dot, Red if not
+                                dot_color = (0, 255, 0) if is_pressed else (0, 0, 255)
+                                if not is_pressed:
+                                    all_fingers_ok = False
+
+                                cv2.circle(display_frame, (x, y), 10, dot_color, -1)
+                                cv2.circle(display_frame, (x, y), 12, (255, 255, 255), 1)
+
+                        # Draw final chord status on screen
+                        msg = "CHORD PERFECT!" if all_fingers_ok else "Check positions"
+                        color = (0, 255, 0) if all_fingers_ok else (0, 165, 255)
+                        cv2.putText(display_frame, msg, (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
                     # HUD
                     if current_chord_name:
