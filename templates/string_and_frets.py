@@ -95,35 +95,46 @@ def merge_vertical_lines(lines, x_threshold=20):
              int(np.mean([l[0] for l in g])), max(l[3] for l in g)] for g in groups]
 
 
-# --- 3. String Detection Logic ---
 def detect_strings_in_neck(frame, locked_model):
     """
     Analyzes the horizontal intensity profile between neck bounds
     to find the 6 guitar strings.
     """
+    # 1. Extract coordinates from the locked model
     y_t, y_b = locked_model['y_t'], locked_model['y_b']
     x_min, x_max = locked_model['x_min'], locked_model['x_max']
 
+    # 2. Crop the neck ROI and ensure it's not empty
     neck_roi = frame[y_t:y_b, x_min:x_max]
-    if neck_roi.size == 0: return []
+    if neck_roi.size == 0:
+        return []
 
+    # 3. Preprocessing: Convert to grayscale and apply Gaussian blur to reduce noise
     gray_neck = cv2.cvtColor(neck_roi, cv2.COLOR_BGR2GRAY)
     gray_neck = cv2.GaussianBlur(gray_neck, (5, 5), 0)
 
-    # Calculate average intensity per row
+    # 4. Create an intensity profile by averaging brightness per row
+    # This collapses the 2D image into a 1D array of brightness values
     projection = cv2.reduce(gray_neck, 1, cv2.REDUCE_AVG).flatten()
     num_rows = len(projection)
+
+    # 5. Define search parameters
     step = num_rows // 7
     string_y_rel = []
+    search_range = 12
 
-    # Search for dark peaks (valleys) in expected regions
+    # 6. Search for dark peaks (valleys) in expected regions for each of the 6 strings
     for i in range(1, 7):
         center = i * step
-        search_range = 12
-        low, high = max(0, center - search_range), min(num_rows, center + search_range)
+        low = max(0, center - search_range)
+        high = min(num_rows, center + search_range)
+
         search_area = projection[low:high]
+
         if len(search_area) > 0:
+            # Find the local minimum within the search range
             local_min = np.argmin(search_area) + low
+            # Store the relative position (0.0 to 1.0)
             string_y_rel.append(local_min / num_rows)
 
     return string_y_rel
