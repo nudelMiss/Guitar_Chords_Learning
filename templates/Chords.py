@@ -1,47 +1,37 @@
-# --- Chord Library Data Structure ---
-# Each chord contains a list of fingers: (fret_number, string_number)
-# String 1: Top string in camera view
-# String 6: Bottom string in camera view
+# --- Chord Library Data Structure Updated ---
+# (fret_number, string_number, finger_id)
+# finger_id: 1=Index, 2=Middle, 3=Ring, 4=Pinky
 
 CHORD_LIBRARY = {
     "C": {
-        "fingers": [(1, 5), (2, 3), (3, 2)],  # flipped strings
+        "fingers": [(1, 5, 1), (2, 3, 2), (3, 2, 3)],
         "muted": [1],
         "open": [4, 6]
     },
     "G": {
-        "fingers": [(3, 1), (2, 2), (3, 6)],
+        "fingers": [(3, 1, 2), (2, 2, 1), (3, 6, 3)],
         "muted": [],
         "open": [3, 4, 5]
     },
     "D": {
-        "fingers": [(2, 4), (3, 5), (2, 6)],
+        "fingers": [(2, 4, 1), (3, 5, 3), (2, 6, 2)],
         "muted": [1, 2],
         "open": [3]
     },
     "Am": {
-        "fingers": [(1, 5), (2, 3), (2, 4)],
+        "fingers": [(1, 5, 1), (2, 3, 2), (2, 4, 3)],
         "muted": [1],
         "open": [2, 6]
     },
     "E": {
-        "fingers": [(1, 4), (2, 2), (2, 3)],
+        "fingers": [(1, 4, 1), (2, 2, 2), (2, 3, 3)],
         "muted": [],
         "open": [1, 5, 6]
     }
 }
 
-
 def get_chord_data(chord_name):
-    """
-    Returns the finger positions for a given chord name.
-    If the chord is not found, returns None.
-    """
     return CHORD_LIBRARY.get(chord_name.upper(), None)
 
-
 def list_available_chords():
-    """
-    Returns a list of all chords currently in the library.
-    """
     return list(CHORD_LIBRARY.keys())

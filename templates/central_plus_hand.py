@@ -46,6 +46,13 @@ def get_dot_coordinates(fret_num, string_num, tracked_corners, fret_model_rel, s
 
 
 def main():
+    FINGER_MAP = {
+        "index": 1,
+        "middle": 2,
+        "ring": 3,
+        "pinky": 4
+    }
+
     cap = cv2.VideoCapture(0)
 
     is_tracking = False
@@ -219,24 +226,16 @@ def main():
                     cv2.line(display_frame, tuple(tl.astype(int)), tuple(tr.astype(int)), (255, 0, 0), 2)
                     cv2.line(display_frame, tuple(bl.astype(int)), tuple(br.astype(int)), (255, 0, 0), 2)
 
+                    # --- זיהוי ידיים ובדיקת אקורד ---
                     if is_strings_calibrated and current_chord_data is not None:
+                        # 1. זיהוי אצבעות
                         num_tips, tips = hd.detect_fingers_and_frets(frame)
-                        finger_coords = [(x, y) for (name, x, y) in tips]
-
                         display_frame = hd.draw_debug(display_frame)
-                    else:
 
-                        finger_coords = []
-
-                    # Draw chord dots
-                    if current_chord_data is not None and is_strings_calibrated:
                         all_fingers_ok = True
 
-                    # Draw chord dots
-                    if current_chord_data is not None and is_strings_calibrated:
-                        all_fingers_ok = True
-
-                        for fret_num, string_num in current_chord_data["fingers"]:
+                        # 2. מעבר על האצבעות הנדרשות באקורד
+                        for fret_num, string_num, req_finger_id in current_chord_data["fingers"]:
                             x, y = get_dot_coordinates(
                                 fret_num, string_num,
                                 tracked_corners,
@@ -246,26 +245,35 @@ def main():
                             )
 
                             if x >= 0 and y >= 0:
-                                # Validation logic using finger_coords from your HandDetector
                                 is_pressed = False
-                                for fx, fy in finger_coords:
-                                    dist = ((x - fx) ** 2 + (y - fy) ** 2) ** 0.5
-                                    if dist < 35:  # Hitbox radius
-                                        is_pressed = True
-                                        break
+                                for name, fx, fy in tips:
+                                    # בדיקת התאמה בין האצבע במצלמה לאצבע הנדרשת
+                                    if FINGER_MAP.get(name) == req_finger_id:
+                                        dist = ((x - fx) ** 2 + (y - fy) ** 2) ** 0.5
+                                        if dist < 40:
+                                            is_pressed = True
+                                            break
 
-                                # Green if finger is on dot, Red if not
                                 dot_color = (0, 255, 0) if is_pressed else (0, 0, 255)
                                 if not is_pressed:
                                     all_fingers_ok = False
 
-                                cv2.circle(display_frame, (x, y), 10, dot_color, -1)
-                                cv2.circle(display_frame, (x, y), 12, (255, 255, 255), 1)
+                                # ציור עיגול ומספר אצבע
+                                cv2.circle(display_frame, (x, y), 12, dot_color, -1)
+                                cv2.circle(display_frame, (x, y), 14, (255, 255, 255), 1)
+                                cv2.putText(display_frame, str(req_finger_id), (x - 6, y + 6),
+                                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
-                        # Draw final chord status on screen
-                        msg = "CHORD PERFECT!" if all_fingers_ok else "Check positions"
-                        color = (0, 255, 0) if all_fingers_ok else (0, 165, 255)
-                        cv2.putText(display_frame, msg, (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+                        # הודעת סיכום (רק אם אנחנו במצב בדיקה)
+                        msg = "CHORD PERFECT!" if all_fingers_ok else "Check Finger Positions"
+                        status_color = (0, 255, 0) if all_fingers_ok else (0, 165, 255)
+                        cv2.putText(display_frame, msg, (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
+
+                    else:
+                        # אם אנחנו לא בכיול מיתרים, פשוט נאפס את רשימת האצבעות
+                        finger_coords = []
+
+
 
                     # HUD
                     if current_chord_name:
