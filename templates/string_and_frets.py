@@ -2,64 +2,45 @@ import cv2
 import numpy as np
 
 
-# --- 1. Classical Vision: Fret Detection (Improved Threshold Stability) ---
-def detect_frets_bottom(frame, brightness_thresh=120, bottom_fraction=0.4):
+# --- 1. Fret Detection (Vertical Edges) ---
+def detect_frets_bottom(frame, bottom_fraction=0.4):
     height, width = frame.shape[:2]
     start_row = int(height * (1 - bottom_fraction))
     bottom_frame = frame[start_row:, :]
 
     gray = cv2.cvtColor(bottom_frame, cv2.COLOR_BGR2GRAY)
 
-    # Detect vertical edges (frets)
+    # Use Sobel X to find vertical edges (frets)
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
     sobelx = cv2.convertScaleAbs(sobelx)
 
-    # === CHANGE: adaptive threshold using Otsu instead of fixed brightness_thresh ===
-    _, thresh = cv2.threshold(
-        sobelx,
-        0,
-        255,
-        cv2.THRESH_BINARY + cv2.THRESH_OTSU
-    )
+    # Adaptive thresholding using Otsu's method
+    _, thresh = cv2.threshold(sobelx, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
-    # Morphological cleanup
+    # Cleanup noise
     kernel = np.ones((3, 3), np.uint8)
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-    # Detect line segments
-    lines = cv2.HoughLinesP(
-        thresh,
-        1,
-        np.pi / 180,
-        30,
-        minLineLength=15,
-        maxLineGap=5
-    )
+    # Probabilistic Hough Line Transform
+    lines = cv2.HoughLinesP(thresh, 1, np.pi / 180, 30, minLineLength=15, maxLineGap=5)
 
     vertical_lines = []
-
     if lines is not None:
         for l in lines:
             x1, y1, x2, y2 = l[0]
-
-            # Keep near-vertical lines only
+            # Filter for near-vertical lines
             if abs(x2 - x1) < 5 and (y2 - y1) > 10:
-                vertical_lines.append([
-                    x1,
-                    y1 + start_row,
-                    x2,
-                    y2 + start_row
-                ])
-
+                vertical_lines.append([x1, y1 + start_row, x2, y2 + start_row])
     return vertical_lines
 
 
-# --- 2. Classical Vision: Neck Bounds (Untouched) ---
+# --- 2. Neck Bounds Detection (Horizontal Edges) ---
 def detect_guitar_neck_bounds(frame, bottom_fraction=0.4):
     height, width = frame.shape[:2]
     start_row = int(height * (1 - bottom_fraction))
     gray = cv2.cvtColor(frame[start_row:, :], cv2.COLOR_BGR2GRAY)
 
+    # Use Sobel Y to find horizontal edges (neck edges)
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
     sobely = cv2.convertScaleAbs(sobely)
     _, thresh = cv2.threshold(sobely, 50, 255, cv2.THRESH_BINARY)
@@ -69,7 +50,7 @@ def detect_guitar_neck_bounds(frame, bottom_fraction=0.4):
     y_coords = []
     if lines is not None:
         for l in lines:
-            if abs(l[0][3] - l[0][1]) < 15:
+            if abs(l[0][3] - l[0][1]) < 15:  # Filter for horizontal lines
                 y_coords.append(((l[0][1] + l[0][3]) // 2) + start_row)
 
     if len(y_coords) >= 2:
@@ -78,75 +59,71 @@ def detect_guitar_neck_bounds(frame, bottom_fraction=0.4):
     return None, None
 
 
+# --- 3. Merge overlapping fret lines ---
 def merge_vertical_lines(lines, x_threshold=20):
     if not lines: return []
     lines.sort(key=lambda l: l[0])
     groups = []
-    if len(lines) > 0:
-        curr = [lines[0]]
-        for i in range(1, len(lines)):
-            if abs(lines[i][0] - curr[-1][0]) <= x_threshold:
-                curr.append(lines[i])
-            else:
-                groups.append(curr)
-                curr = [lines[i]]
-        groups.append(curr)
+    curr = [lines[0]]
+    for i in range(1, len(lines)):
+        if abs(lines[i][0] - curr[-1][0]) <= x_threshold:
+            curr.append(lines[i])
+        else:
+            groups.append(curr)
+            curr = [lines[i]]
+    groups.append(curr)
+
     return [[int(np.mean([l[0] for l in g])), min(l[1] for l in g),
              int(np.mean([l[0] for l in g])), max(l[3] for l in g)] for g in groups]
 
 
+# --- 4. String Detection (Advanced Edge Projection) ---
 def detect_strings_in_neck(frame, locked_model):
     """
-    Analyzes the horizontal intensity profile between neck bounds
-    to find the 6 guitar strings.
+    Finds strings by analyzing vertical gradients (Sobel Y) across the neck.
+    Robust against changes in absolute brightness.
     """
-    # 1. Extract coordinates from the locked model
-    y_t, y_b = locked_model['y_t'], locked_model['y_b']
-    x_min, x_max = locked_model['x_min'], locked_model['x_max']
+    y_t, y_b = int(locked_model['y_t']), int(locked_model['y_b'])
+    x_min, x_max = int(locked_model['x_min']), int(locked_model['x_max'])
 
-    # 2. Crop the neck ROI and ensure it's not empty
     neck_roi = frame[y_t:y_b, x_min:x_max]
-    if neck_roi.size == 0:
-        return []
+    if neck_roi.size == 0: return []
 
-    # 3. Preprocessing: Convert to grayscale and apply Gaussian blur to reduce noise
     gray_neck = cv2.cvtColor(neck_roi, cv2.COLOR_BGR2GRAY)
-    gray_neck = cv2.GaussianBlur(gray_neck, (5, 5), 0)
 
-    # 4. Create an intensity profile by averaging brightness per row
-    # This collapses the 2D image into a 1D array of brightness values
-    projection = cv2.reduce(gray_neck, 1, cv2.REDUCE_AVG).flatten()
+    # Sobel Y highlights horizontal edges (strings)
+    grad_y = cv2.Sobel(gray_neck, cv2.CV_16S, 0, 1, ksize=3)
+    grad_y = cv2.convertScaleAbs(grad_y)
+    grad_y = cv2.GaussianBlur(grad_y, (3, 3), 0)
+
+    # Projection: Sum of gradients across each row
+    projection = cv2.reduce(grad_y, 1, cv2.REDUCE_SUM, dtype=cv2.CV_32F).flatten()
+
     num_rows = len(projection)
-
-    # 5. Define search parameters
+    # Search bands for the 6 strings
     step = num_rows // 7
     string_y_rel = []
-    search_range = 12
+    search_range = 15
 
-    # 6. Search for dark peaks (valleys) in expected regions for each of the 6 strings
     for i in range(1, 7):
         center = i * step
-        low = max(0, center - search_range)
-        high = min(num_rows, center + search_range)
-
+        low, high = max(0, center - search_range), min(num_rows, center + search_range)
         search_area = projection[low:high]
 
         if len(search_area) > 0:
-            # Find the local minimum within the search range
-            local_min = np.argmin(search_area) + low
-            # Store the relative position (0.0 to 1.0)
-            string_y_rel.append(local_min / num_rows)
+            # Strings are Peaks in the gradient projection
+            local_max = np.argmax(search_area) + low
+            string_y_rel.append(local_max / num_rows)
 
     return string_y_rel
 
 
-# --- 4. Main Application ---
+# --- 5. Main Application ---
 def main():
     cap = cv2.VideoCapture(0)
 
     # State Variables
     is_tracking = False
-    show_string_error = False
     tracking_pts = None
     initial_pts = None
     fret_model_rel = []
@@ -154,8 +131,12 @@ def main():
     last_gray = None
     locked_model = {}
 
-    print("--- Guitar Tracker Loaded ---")
-    print("Commands: [c] Calibrate Neck, [s] Detect Strings, [x] Reset Strings, [r] Reset All, [q] Quit")
+    # Smoothing parameters for the visual grid
+    smoothed_corners = None
+    ALPHA = 0.4  # Lower = smoother but slower tracking. Higher = faster but jittery.
+
+    print("--- Pro Guitar Tracker ---")
+    print("Commands: [c] Calibrate, [s] Strings, [r] Reset, [q] Quit")
 
     while True:
         ret, frame = cap.read()
@@ -166,64 +147,36 @@ def main():
         display_frame = frame.copy()
         key = cv2.waitKey(1) & 0xFF
 
-        # --- Keyboard Logic ---
         if key == ord('q'): break
-
-        if key == ord('r'):  # Reset everything
+        if key == ord('r'):
             is_tracking = False
             string_model_rel = []
-            show_string_error = False
+            smoothed_corners = None
             print("System Reset.")
 
-        if key == ord('x'):  # Reset strings only
-            string_model_rel = []
-            show_string_error = False
-            print("Strings Cleared.")
-
-        # Attempt string detection (Only if tracking is active)
-        if key == ord('s') and is_tracking:
-            detected = detect_strings_in_neck(frame, locked_model)
-            if len(detected) == 6:
-                string_model_rel = detected
-                show_string_error = False
-                print("Success: 6 Strings Calibrated.")
-            else:
-                string_model_rel = []
-                show_string_error = True
-                print(f"Failed: Only {len(detected)} strings found. Need exactly 6.")
-
+        # --- TRACKING ENGINE ---
         if is_tracking and tracking_pts is not None:
-            if is_tracking and tracking_pts is not None:
-                # --- TRACKING ENGINE (Updated for Stability) ---
-                new_pts, status, _ = cv2.calcOpticalFlowPyrLK(last_gray, gray, tracking_pts, None)
+            new_pts, status, _ = cv2.calcOpticalFlowPyrLK(last_gray, gray, tracking_pts, None)
+
+            if new_pts is not None:
                 good_new = new_pts[status.flatten() == 1]
                 good_old = initial_pts[status.flatten() == 1]
 
-                # Initialize a persistent matrix in the model to avoid flickering
-                if 'last_matrix' not in locked_model:
-                    locked_model['last_matrix'] = np.array([[1, 0, 0], [0, 1, 0]], dtype=np.float32)
-                # Try to update the transformation only if enough points are tracked
                 if len(good_new) >= 6:
-                    # Use RANSAC to find the neck's global movement and filter out hand motion
-                    matrix, inliers = cv2.estimateAffine2D(good_old, good_new,
-                                                                  method=cv2.RANSAC,
-                                                                  ransacReprojThreshold=3)
+                    # Robust transform calculation using RANSAC
+                    matrix, inliers = cv2.estimateAffine2D(good_old, good_new, method=cv2.RANSAC,
+                                                           ransacReprojThreshold=3)
 
                     if matrix is not None:
-                        # Consensus Check: How many points agree on this specific transformation?
                         inlier_ratio = np.sum(inliers) / len(good_new)
-
-                        # Only update the scale/position if more than 50% of points move together
-                        # This prevents the hand from distorting the fretboard scale
-                        if inlier_ratio > 0.5:
+                        if inlier_ratio > 0.4:
                             locked_model['last_matrix'] = matrix
                             tracking_pts = cv2.transform(initial_pts, matrix)
                             last_gray = gray.copy()
 
-                # Always use the last validated matrix for drawing (prevents grid from disappearing)
-                curr_matrix = locked_model['last_matrix']
+                curr_matrix = locked_model.get('last_matrix', np.eye(2, 3, dtype=np.float32))
 
-                # Transform neck corners
+                # Corner definitions for current model
                 corners = np.array([
                     [locked_model['x_min'], locked_model['y_t']],
                     [locked_model['x_max'], locked_model['y_t']],
@@ -231,31 +184,48 @@ def main():
                     [locked_model['x_max'], locked_model['y_b']]
                 ], dtype=np.float32).reshape(-1, 1, 2)
 
-                tracked_corners = cv2.transform(corners, curr_matrix).reshape(-1, 2)
-                tl, tr, bl, br = tracked_corners[0], tracked_corners[1], tracked_corners[2], tracked_corners[3]
+                # Apply smoothing to corners to prevent visual jitter
+                raw_corners = cv2.transform(corners, curr_matrix).reshape(-1, 2)
+                if smoothed_corners is None:
+                    smoothed_corners = raw_corners
+                else:
+                    smoothed_corners = ALPHA * raw_corners + (1 - ALPHA) * smoothed_corners
 
-                # 1. Draw Frets (Green)
+                tl, tr, bl, br = smoothed_corners
+
+                # String Calibration Trigger (During tracking)
+                if key == ord('s'):
+                    # Create a temporary model of the current tracked state
+                    current_view_model = {
+                        'x_min': min(tl[0], bl[0]), 'x_max': max(tr[0], br[0]),
+                        'y_t': min(tl[1], tr[1]), 'y_b': max(bl[1], br[1])
+                    }
+                    detected = detect_strings_in_neck(frame, current_view_model)
+                    if len(detected) == 6:
+                        string_model_rel = detected
+                        print("Strings calibrated.")
+                    else:
+                        print(f"Failed strings: found {len(detected)}")
+
+                # --- DRAWING ---
+                # Draw Frets (Green)
                 for rel_x in fret_model_rel:
                     p1 = (tl + rel_x * (tr - tl)).astype(int)
                     p2 = (bl + rel_x * (br - bl)).astype(int)
                     cv2.line(display_frame, tuple(p1), tuple(p2), (0, 255, 0), 2)
 
-                # 2. Draw Strings (Yellow)
+                # Draw Strings (Yellow)
                 for rel_y in string_model_rel:
                     p1 = (tl + rel_y * (bl - tl)).astype(int)
                     p2 = (tr + rel_y * (br - tr)).astype(int)
                     cv2.line(display_frame, tuple(p1), tuple(p2), (0, 255, 255), 1)
 
-                # 3. Draw Neck Boundaries (Blue)
+                # Draw Neck Bounds (Blue)
                 cv2.line(display_frame, tuple(tl.astype(int)), tuple(tr.astype(int)), (255, 0, 0), 2)
                 cv2.line(display_frame, tuple(bl.astype(int)), tuple(br.astype(int)), (255, 0, 0), 2)
 
-            # Display pop-up alert if string count is wrong
-            if show_string_error:
-                cv2.putText(display_frame, "STRINGS FAILED - TRY AGAIN (S)", (50, 100),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
         else:
-            # --- PREVIEW/CALIBRATION MODE ---
+            # --- PREVIEW / CALIBRATION MODE ---
             raw_f = detect_frets_bottom(frame)
             y_t, y_b = detect_guitar_neck_bounds(frame)
 
@@ -263,27 +233,30 @@ def main():
                 cv2.line(display_frame, (0, y_t), (width, y_t), (0, 0, 255), 1)
                 cv2.line(display_frame, (0, y_b), (width, y_b), (0, 0, 255), 1)
 
-            # Lock Neck Calibration
             if key == ord('c') and y_t is not None and len(raw_f) > 2:
                 stable_f = merge_vertical_lines(raw_f)
                 x_min, x_max = stable_f[0][0], stable_f[-1][0]
 
-                # Create point grid for LK Tracking
-                grid_x = np.linspace(x_min, x_max, 10)
-                grid_y = np.linspace(y_t, y_b, 4)
-                temp_pts = [[gx, gy] for gx in grid_x for gy in grid_y]
+                # Intelligent Point Selection: Track texture/corners instead of a grid
+                roi_gray = gray[y_t:y_b, x_min:x_max]
+                features = cv2.goodFeaturesToTrack(roi_gray, maxCorners=50, qualityLevel=0.01, minDistance=10)
 
-                initial_pts = np.array(temp_pts, dtype=np.float32).reshape(-1, 1, 2)
-                tracking_pts = initial_pts.copy()
+                if features is not None:
+                    # Offset features to full frame coordinates
+                    features[:, 0, 0] += x_min
+                    features[:, 0, 1] += y_t
+                    initial_pts = features.astype(np.float32)
+                    tracking_pts = initial_pts.copy()
 
-                locked_model = {'x_min': x_min, 'x_max': x_max, 'y_t': y_t, 'y_b': y_b}
-                fret_model_rel = [(f[0] - x_min) / (x_max - x_min) for f in stable_f]
+                    locked_model = {'x_min': x_min, 'x_max': x_max, 'y_t': y_t, 'y_b': y_b}
+                    fret_model_rel = [(f[0] - x_min) / (x_max - x_min) for f in stable_f]
 
-                last_gray = gray.copy()
-                is_tracking = True
-                print("Model Locked! Press 's' to calibrate strings.")
+                    last_gray = gray.copy()
+                    is_tracking = True
+                    smoothed_corners = None
+                    print("Calibration Locked. Now press 's' for strings.")
 
-        cv2.imshow("Robust Guitar Fret & String Tracker", display_frame)
+        cv2.imshow("Advanced Guitar Tracker", display_frame)
 
     cap.release()
     cv2.destroyAllWindows()
