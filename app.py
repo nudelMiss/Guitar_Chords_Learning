@@ -1,9 +1,9 @@
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, jsonify
 import cv2
 import threading
 
 # Import the main guitar tracking logic
-from central_coordinating import GuitarSystem 
+from song_main import GuitarSystem 
 
 app = Flask(__name__)
 
@@ -40,11 +40,26 @@ def send_command(key):
         
     return "OK", 200
 
+@app.route('/start_song/<song_id>')
+def start_song(song_id):
+    # Tell the guitar system to start the timer and load chords for this song
+    # This is crucial for updating the current_chord_name!
+    guitar.start_playing_song(song_id)
+    return "OK", 200
+
 @app.route('/play-song/<song_name>')
 def play_song(song_name):
     # Pass the song ID to the new template so it knows which song to display
     # You can later use this ID to load the specific chords for this song
     return render_template('play-song.html', song_name=song_name)
+
+@app.route('/current_chord')
+def current_chord():
+    # Return both chord and lyric as a JSON object
+    return jsonify({
+        "chord": guitar.current_chord_name if guitar.current_chord_name else "Ready",
+        "lyric": guitar.current_lyric if guitar.is_playing_song else ""
+    })
 
 def generate_frames():
     global last_web_key
@@ -66,7 +81,7 @@ def generate_frames():
 
             # Process the frame using the GuitarSystem logic
             # This handles both the computer vision and drawing the UI overlays
-            display_frame = guitar_ai.process_frame(frame, current_key)
+            display_frame = guitar.process_frame(frame, current_key)
             
             # Encode the processed frame into JPEG format
             ret, buffer = cv2.imencode('.jpg', display_frame)
