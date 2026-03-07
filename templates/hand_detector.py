@@ -10,7 +10,6 @@ FINGERTIP_IDS = {
     "index": 8,
     "middle": 12,
     "ring": 16,
-    "pinky": 20,
 }
 
 # Hand connection pairs for drawing
@@ -94,15 +93,6 @@ class HandDetector:
 
         out = frame_bgr.copy()
 
-        # draw connections
-        for a, b in HAND_CONNECTIONS:
-            xa, ya = self.last_landmarks_px[a]
-            xb, yb = self.last_landmarks_px[b]
-            cv2.line(out, (xa, ya), (xb, yb), (255, 255, 255), 2)
-
-        # draw points
-        for (x, y) in self.last_landmarks_px:
-            cv2.circle(out, (x, y), 2, (255, 255, 255), -1)
 
         # draw fingertips
         if self.last_fingertips_px:
