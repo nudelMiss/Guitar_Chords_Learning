@@ -2,8 +2,8 @@ from flask import Flask, render_template, Response, jsonify
 import cv2
 import threading
 
-from song_main import GuitarSystem
-import Chords
+from camera_main import GuitarSystem
+import chords_data
 
 app = Flask(__name__)
 
@@ -33,8 +33,8 @@ def chords_training():
 def set_chord(chord_name):
     # This directly sets the chord in the guitar system
     guitar.current_chord_name = chord_name.upper()
-    import Chords
-    guitar.current_chord_data = Chords.CHORD_LIBRARY.get(guitar.current_chord_name)
+    import chords_data
+    guitar.current_chord_data = chords_data.CHORD_LIBRARY.get(guitar.current_chord_name)
     return "OK", 200
 
 @app.route('/song-practice')

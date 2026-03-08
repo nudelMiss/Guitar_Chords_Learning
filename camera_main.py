@@ -1,7 +1,8 @@
 import cv2
-import Chords
+import chords_data
 import string_and_frets as sf
 import time
+
 from songs_data import SONGS
 from hand_detector import HandDetector
 
@@ -11,7 +12,7 @@ class GuitarSystem:
         self.tracker = sf.GuitarNeckTracker()
 
         # Chord state
-        self.available_chords = Chords.list_available_chords()
+        self.available_chords = chords_data.list_available_chords()
         self.available_chords.sort()
         self.chord_idx = 0
         self.current_chord_name = None
@@ -61,7 +62,7 @@ class GuitarSystem:
         if self.song_chords_sequence and self.current_chord_index < len(self.song_chords_sequence):
             node = self.song_chords_sequence[self.current_chord_index]
             self.current_chord_name = node["chord"]
-            self.current_chord_data = Chords.get_chord_data(self.current_chord_name)
+            self.current_chord_data = chords_data.get_chord_data(self.current_chord_name)
             self.current_lyric = node.get("lyric", "")
 
     def _reset_calibration_only(self):
@@ -331,13 +332,13 @@ class GuitarSystem:
             if key == ord('a'):
                 self.chord_idx = (self.chord_idx + 1) % len(self.available_chords)
                 self.current_chord_name = self.available_chords[self.chord_idx]
-                self.current_chord_data = Chords.get_chord_data(self.current_chord_name)
+                self.current_chord_data = chords_data.get_chord_data(self.current_chord_name)
                 print("Chord selected:", self.current_chord_name)
 
             if key == ord('z'):
                 self.chord_idx = (self.chord_idx - 1) % len(self.available_chords)
                 self.current_chord_name = self.available_chords[self.chord_idx]
-                self.current_chord_data = Chords.get_chord_data(self.current_chord_name)
+                self.current_chord_data = chords_data.get_chord_data(self.current_chord_name)
                 print("Chord selected:", self.current_chord_name)
 
             if key == ord('v'):
