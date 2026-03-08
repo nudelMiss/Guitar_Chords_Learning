@@ -112,3 +112,35 @@ class HandDetector:
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
         return out
+
+    def detect_all_hands_fingertips(self, frame_bgr):
+        h, w = frame_bgr.shape[:2]
+        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        results = self.hand_landmarker.detect(mp_image)
+
+        all_hands = []
+
+        if not results.hand_landmarks:
+            self.last_landmarks_px = None
+            self.last_fingertips_px = None
+            return []
+
+        for hand_lms in results.hand_landmarks:
+            pts = []
+            for lm in hand_lms:
+                pts.append((int(lm.x * w), int(lm.y * h)))
+
+            tips = []
+            for name, idx in FINGERTIP_IDS.items():
+                x, y = pts[idx]
+                # no EMA per-hand here for now
+                tips.append((name, int(x), int(y)))
+
+            all_hands.append({
+                "landmarks": pts,
+                "tips": tips
+            })
+
+        return all_hands
