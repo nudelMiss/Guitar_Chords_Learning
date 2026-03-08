@@ -2,8 +2,7 @@ from flask import Flask, render_template, Response, jsonify
 import cv2
 import threading
 
-from camera_main import GuitarSystem
-import chords_data
+from GuitarSystem import GuitarSystem
 
 app = Flask(__name__)
 

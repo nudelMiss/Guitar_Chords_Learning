@@ -29,6 +29,7 @@ class GuitarSystem:
         # Hand detection
         self.hand_detector = HandDetector(max_hands=2, detection_conf=0.6, tracking_conf=0.6)
         self.show_hand_debug = True
+        self.show_tracker_lines = True
 
         self.finger_map = {
             "index": 1,
@@ -70,7 +71,14 @@ class GuitarSystem:
         Reset only tracker/calibration-related state.
         Keep hand detector alive and do not recreate the whole system.
         """
-        self.tracker = sf.GuitarNeckTracker()
+        self.tracker = sf.GuitarNeckTracker()       
+        self.current_chord_name = None
+        self.current_chord_data = None
+
+        # Reset tracker lines to visible
+        self.show_tracker_lines = True
+
+        print("Calibration reset.")
 
         # Stop song playback / overlay
         self.current_lyric = ""
@@ -95,6 +103,13 @@ class GuitarSystem:
         self.chord_idx = 0
         self.current_chord_name = None
         self.current_chord_data = None
+
+        self.song_chords_sequence = []
+        self.current_chord_index = 0
+        self.chord_start_time = 0.0
+
+        # Reset tracker lines to visible
+        self.show_tracker_lines = True
 
         self.current_lyric = ""
         self.is_playing_song = False
@@ -317,6 +332,7 @@ class GuitarSystem:
 
         # Show hand debug only in chord-training mode
         self.show_hand_debug = not self.is_playing_song
+        
 
         # -----------------------------
         # Commands
@@ -362,6 +378,13 @@ class GuitarSystem:
         # -----------------------------
         if self.is_playing_song:
             # Song mode: plain camera frame, no fretboard overlay
+            display_frame = frame.copy()
+        else:
+            # Learning / calibration mode: show tracker debug
+            display_frame = self.tracker.draw_debug(frame.copy())
+
+        if self.is_playing_song or not self.show_tracker_lines:
+            # Plain camera frame, no fretboard overlay
             display_frame = frame.copy()
         else:
             # Learning / calibration mode: show tracker debug

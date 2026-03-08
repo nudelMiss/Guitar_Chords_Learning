@@ -1,7 +1,7 @@
 # Format: (fret_number, string_number, finger_id)
 # String numbering:
-# 6 = top string on screen
-# 1 = bottom string on screen
+# 1 = top string on screen
+# 6 = bottom string on screen
 
 CHORD_LIBRARY = {
     "C": {
@@ -19,7 +19,7 @@ CHORD_LIBRARY = {
         "muted": [5, 6],
         "open": [4]
     },
-    "Am": {
+    "AM": {
         "fingers": [(1, 2, 1), (2, 4, 2), (2, 3, 3)],
         "muted": [6],
         "open": [1, 5]
@@ -29,7 +29,7 @@ CHORD_LIBRARY = {
         "muted": [],
         "open": [1, 2, 6]
     },
-    "Em": {
+    "EM": {
         "fingers": [(2, 5, 2), (2, 4, 3)],
         "muted": [],
         "open": [1, 2, 3, 6]
@@ -43,6 +43,11 @@ CHORD_LIBRARY = {
         "fingers": [(2, 4, 1), (2, 3, 2), (2, 2, 3)],
         "muted": [6],
         "open": [1, 5]
+    },
+    "F": {
+        "fingers": [(1, 2, 1), (2, 3, 2), (3, 5, 3), (3,4, 4)],
+        "muted": [],
+        "open": []
     }
 }
 
