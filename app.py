@@ -3,6 +3,7 @@ import cv2
 import threading
 
 from song_main import GuitarSystem
+import Chords
 
 app = Flask(__name__)
 
@@ -27,6 +28,14 @@ def index():
 @app.route('/chords-training')
 def chords_training():
     return render_template('chords-training.html')
+
+@app.route('/set_chord/<chord_name>')
+def set_chord(chord_name):
+    # This directly sets the chord in the guitar system
+    guitar.current_chord_name = chord_name.upper()
+    import Chords
+    guitar.current_chord_data = Chords.CHORD_LIBRARY.get(guitar.current_chord_name)
+    return "OK", 200
 
 @app.route('/song-practice')
 def song_practice():

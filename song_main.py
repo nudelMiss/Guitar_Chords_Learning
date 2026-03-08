@@ -5,7 +5,6 @@ import time
 from songs_data import SONGS
 from hand_detector import HandDetector
 
-
 class GuitarSystem:
     def __init__(self):
         # Tracker

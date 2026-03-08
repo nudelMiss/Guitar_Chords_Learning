@@ -3,103 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chord Training - AI Guitar</title>
+    <title>Chord Training - Guitar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Rubik', sans-serif; }</style>
+    <style>
+        body { font-family: 'Rubik', sans-serif; overflow: hidden; }
+        .sidebar-transition { transition: transform 0.3s ease-in-out; }
+        .sidebar-hidden { transform: translateX(-100%); }
+    </style>
 </head>
-<body class="bg-stone-50 text-stone-900 min-h-screen">
+<body class="bg-stone-100 h-screen flex flex-col">
 
-    <nav class="p-6 flex justify-between items-center bg-white shadow-sm">
-        <h1 class="text-2xl font-black text-amber-700">GUITAR AI</h1>
-        <a href="index.html" class="text-stone-500 hover:text-stone-800 font-bold">← Back to Home</a>
-    </nav>
-
-    <main class="max-w-[1800px] mx-auto px-6 py-12 grid md:grid-cols-[0.9fr_1.4fr] gap-10 items-start">        
-        <div class="space-y-8">
-            <section class="bg-white p-8 rounded-3xl shadow-lg border-b-4 border-amber-500">
-                <h2 class="text-2xl font-bold mb-4">Step 1: Calibration</h2>
-                <p class="text-stone-600 mb-4">Make sure your guitar neck is clearly visible to the camera.</p>
-                <button onclick="startCalibration()" class="w-full py-3 bg-amber-100 text-amber-700 rounded-xl font-bold border-2 border-amber-200 hover:bg-amber-200 transition-all">
-                    Start Calibration
-                </button>
-            </section>
-
-            <section class="bg-white p-8 rounded-3xl shadow-lg border-b-4 border-stone-300">
-                <h2 class="text-2xl font-bold mb-4">Step 2: Choose a Chord</h2>
-                <div class="grid grid-cols-3 gap-3">
-                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">C</button>
-                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">G</button>
-                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">D</button>
-                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">Am</button>
-                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">Em</button>
-                    <button class="chord-btn p-4 bg-stone-100 rounded-xl font-bold hover:bg-amber-500 hover:text-white transition-all">F</button>
-                </div>
-            </section>
+    <header class="bg-white p-4 shadow-sm flex justify-between items-center z-10">
+        <div class="w-64"> <button onclick="toggleSidebar()" id="chord-menu-btn" class="flex items-center gap-2 px-5 py-2 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all shadow-md">
+                <span>🎸</span> Open Chord Menu
+            </button>
         </div>
+    
+        <div id="active-chord-display" class="text-stone-800 font-bold text-lg">No chord selected</div>
+    
+        <div class="w-64 text-right">
+            <a href="/" class="text-stone-400 hover:text-stone-800 font-bold">← Back to Home</a>
+        </div>
+    </header>
 
-        <div class="space-y-6">
-            <div class="relative bg-black rounded-[2.5rem] overflow-hidden shadow-2xl border-8 border-white h-[620px]">
-                <img id="camera-feed"
-                    src="{{ url_for('video_feed') }}"
-                    class="absolute inset-0 w-full h-full object-cover block"
-                    alt="Camera Feed">
+    <div class="py-6 flex justify-center">
+        <div id="instruction-banner" class="bg-stone-800 px-12 py-5 rounded-3xl border-b-4 border-amber-500 shadow-xl text-center max-w-2xl transition-all">
+            <p class="text-amber-400 font-bold text-lg italic">
+                Follow steps 1 and 2 in the sidebar
+            </p>
+        </div>
+    </div>
 
-                <div id="camera-waiting"
-                    class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <p class="text-white font-bold bg-black/40 px-6 py-2 rounded-full backdrop-blur-md">
-                        Waiting for camera...
-                    </p>
+    <div class="flex flex-1 px-8 pb-8 gap-8 min-h-0">
+        
+        <aside class="w-80 flex flex-col gap-4">
+            <div class="bg-white p-8 rounded-[3rem] shadow-xl border-t-8 border-amber-500 h-full flex flex-col items-center">
+                <h4 id="sidebar-title" class="text-center font-black text-stone-400 uppercase text-sm tracking-[0.2em] mb-8">
+                    Setup Process
+                </h4>
+                
+                <div id="setup-controls" class="w-full space-y-6">
+                    <button onclick="sendCmd('c')" class="w-full py-6 bg-[#CC4433] text-white rounded-[2rem] font-black text-2xl hover:brightness-110 transition-all shadow-lg active:scale-95 uppercase">
+                        LOCK NECK (C)
+                    </button>
+                    
+                    <button onclick="sendCmd('r')" class="w-full py-3 bg-stone-100 text-stone-500 rounded-2xl font-bold hover:bg-stone-200 transition-all text-sm uppercase">
+                        RESET (R)
+                    </button>
+        
+                    <div class="h-px bg-stone-100 my-4"></div>
+        
+                    <button onclick="sendCmd('s')" class="w-full py-6 bg-[#E69940] text-white rounded-[2rem] font-black text-2xl hover:brightness-110 transition-all shadow-lg active:scale-95 uppercase">
+                        LOCK STRINGS (S)
+                    </button>
+                    
+                    <button onclick="sendCmd('x')" class="w-full py-3 bg-stone-100 text-stone-500 rounded-2xl font-bold hover:bg-stone-200 transition-all text-sm uppercase">
+                        CLEAR (X)
+                    </button>
                 </div>
+        
+                <div id="training-info" class="hidden w-full flex-1 flex flex-col items-center justify-center">
+                    <div class="bg-white w-full rounded-3xl p-8 text-center border-2 border-amber-50 shadow-inner">
+                        <p class="text-xs font-black text-stone-400 uppercase tracking-widest mb-4">Target</p>
+                        <p id="current-chord-name" class="text-7xl font-black text-amber-600">-</p>
+                    </div>
+                </div>
+        
+                <div class="mt-auto w-full pt-8">
+                    <button id="start-btn" onclick="startTraining()" disabled class="w-full py-7 bg-stone-300 text-white rounded-[2rem] font-black text-3xl cursor-not-allowed transition-all shadow-xl uppercase">
+                        START
+                    </button>
+                </div>
+            </div>
+        </aside>
 
-                <div class="absolute top-6 right-6 bg-green-500 text-white px-6 py-3 rounded-2xl font-black text-xl shadow-lg animate-pulse hidden" id="feedback-ok">
-                    EXCELLENT!
+        <div class="flex-1 relative bg-black rounded-[4rem] overflow-hidden shadow-2xl border-[12px] border-white">
+            <img src="{{ url_for('video_feed') }}" class="w-full h-full object-cover" alt="Guitar Feed">
+            
+            <div class="absolute bottom-8 left-8 flex flex-col gap-2">
+                <div id="status-neck" class="bg-black/40 backdrop-blur-md text-white px-5 py-2 rounded-full text-xs font-bold border border-white/20 uppercase italic">
+                    Neck: Ready to lock
+                </div>
+                <div id="status-strings" class="bg-black/40 backdrop-blur-md text-white px-5 py-2 rounded-full text-xs font-bold border border-white/20 uppercase italic">
+                    Strings: Waiting
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+
+    <aside id="chord-sidebar" class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 sidebar-transition sidebar-hidden flex flex-col">
+        <div class="p-8 border-b flex justify-between items-center">
+            <h2 class="text-2xl font-black text-amber-600">CHORDS</h2>
+            <button onclick="toggleSidebar()" class="text-stone-300 hover:text-stone-900 text-3xl">&times;</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-2" id="chord-list">
+            <button onclick="selectChord('C')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">C</button>
+            <button onclick="selectChord('G')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">G</button>
+            <button onclick="selectChord('D')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">D</button>
+            <button onclick="selectChord('Am')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">Am</button>
+            <button onclick="selectChord('Em')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">Em</button>
+            <button onclick="selectChord('F')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">F</button>
+        </div>
+    </aside>
+
+    <div id="overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden opacity-0 transition-opacity"></div>
 
     <script>
-        // Placeholder for calibration logic
-        function startCalibration() {
-            console.log("Calibration started...");
-            alert("Please hold your guitar still for 3 seconds.");
-        }
-    </script>
-    <script>
-        function sendCommand(key) {
-            fetch(`/send_command/${key}`).catch(err => console.error(err));
-        }
+        let isCalibrated = false;
+        let isTrainingMode = false;
 
-        function startCalibration() {
-            console.log("Calibration started...");
-            sendCommand('c');
-            setTimeout(() => sendCommand('s'), 1200);
+        function toggleSidebar() {
+            const sb = document.getElementById('chord-sidebar');
+            const ov = document.getElementById('overlay');
+            sb.classList.toggle('sidebar-hidden');
+            ov.classList.toggle('hidden');
+            setTimeout(() => ov.classList.toggle('opacity-0'), 10);
         }
 
-        const cameraFeed = document.getElementById("camera-feed");
-        const waitingOverlay = document.getElementById("camera-waiting");
-
-        cameraFeed.addEventListener("load", () => {
-            if (waitingOverlay) {
-                waitingOverlay.style.display = "none";
+        function sendCmd(key) {
+            fetch(`/send_command/${key}`);
+            // Logic for visual status updates
+            if (key === 'c') document.getElementById('status-neck').innerText = "Neck: LOCKED";
+            if (key === 's') {
+                document.getElementById('status-strings').innerText = "Strings: CALIBRATED";
+                isCalibrated = true;
+                updateStartBtn();
             }
-        });
+            if (key === 'r') location.reload();
+        }
 
-        document.querySelectorAll(".chord-btn").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const chord = btn.textContent.trim();
+        function updateStartBtn() {
+            const btn = document.getElementById('start-btn');
+            if (isCalibrated) {
+                btn.disabled = false;
+                btn.classList.replace('bg-stone-300', 'bg-green-600');
+                btn.classList.remove('cursor-not-allowed');
+            }
+        }
 
-                const chordOrder = ["Am", "C", "D", "E", "Em", "F", "G"];
-                fetch('/send_command/v').catch(err => console.error(err));
+        function startTraining() {
+            isTrainingMode = true;
+            document.getElementById('setup-controls').classList.add('hidden');
+            document.getElementById('training-info').classList.remove('hidden');
+            document.getElementById('chord-menu-btn').classList.remove('hidden');
+            document.getElementById('instruction-banner').classList.add('opacity-0');
+            
+            const btn = document.getElementById('start-btn');
+            btn.innerText = "RESET SETUP";
+            btn.onclick = () => location.reload();
+            btn.classList.replace('bg-green-600', 'bg-stone-800');
+            
+            // Auto-open chord menu on start
+            toggleSidebar();
+        }
 
-                const currentIndex = chordOrder.indexOf(chord);
-                if (currentIndex === -1) return;
-
-                fetch('/send_command/z').catch(err => console.error(err));
-                // optional: replace this later with a dedicated route for exact chord selection
-            });
-        });
+        function selectChord(chord) {
+            document.getElementById('active-chord-display').innerText = "Practicing: " + chord;
+            document.getElementById('current-chord-name').innerText = chord;
+            
+        
+            fetch(`/set_chord/${chord}`).catch(err => console.error(err)); 
+            toggleSidebar();
+        }
     </script>
 </body>
 </html>
