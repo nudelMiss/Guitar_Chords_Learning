@@ -122,15 +122,21 @@
         }
 
         function sendCmd(key) {
-            fetch(`/send_command/${key}`);
-            // Logic for visual status updates
-            if (key === 'c') document.getElementById('status-neck').innerText = "Neck: LOCKED";
+            fetch(`/send_command/${key}`).catch(err => console.error(err));
+
+            if (key === 'c') {
+                document.getElementById('status-neck').innerText = "Neck: LOCKED";
+            }
+
             if (key === 's') {
                 document.getElementById('status-strings').innerText = "Strings: CALIBRATED";
                 isCalibrated = true;
                 updateStartBtn();
             }
-            if (key === 'r') location.reload();
+
+            if (key === 'r') {
+                location.reload();
+            }
         }
 
         function updateStartBtn() {
@@ -143,17 +149,23 @@
         }
 
         function startTraining() {
+            if (!isCalibrated) return;
+
             isTrainingMode = true;
+
             document.getElementById('setup-controls').classList.add('hidden');
             document.getElementById('training-info').classList.remove('hidden');
             document.getElementById('chord-menu-btn').classList.remove('hidden');
             document.getElementById('instruction-banner').classList.add('opacity-0');
-            
+
             const btn = document.getElementById('start-btn');
             btn.innerText = "RESET SETUP";
             btn.onclick = () => location.reload();
             btn.classList.replace('bg-green-600', 'bg-stone-800');
-            
+
+            // Hide tracker/fretboard overlay after entering training mode
+            fetch('/set_tracker_lines/0').catch(err => console.error(err));
+
             // Auto-open chord menu on start
             toggleSidebar();
         }
@@ -161,11 +173,32 @@
         function selectChord(chord) {
             document.getElementById('active-chord-display').innerText = "Practicing: " + chord;
             document.getElementById('current-chord-name').innerText = chord;
-            
-        
-            fetch(`/set_chord/${chord}`).catch(err => console.error(err)); 
+
+            fetch(`/set_chord/${chord}`).catch(err => console.error(err));
             toggleSidebar();
         }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(event) {
+            const key = event.key.toLowerCase();
+
+            // Ignore auto-repeat when key is held down
+            if (event.repeat) return;
+
+            // Ignore typing inside inputs/textareas if you add any later
+            const tag = document.activeElement?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea') return;
+
+            if (key === 'c' || key === 's' || key === 'r' || key === 'x') {
+                event.preventDefault();
+                sendCmd(key);
+            }
+        });
+
+        // Make sure tracker lines are visible when entering this page
+        window.addEventListener('load', function() {
+            fetch('/set_tracker_lines/1').catch(err => console.error(err));
+        });
     </script>
 </body>
 </html>

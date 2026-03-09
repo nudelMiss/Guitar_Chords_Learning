@@ -81,20 +81,22 @@ class GuitarNeckTracker:
         quad = self._clamp_quad_to_frame(quad, frame.shape)
 
         crop, _ = self._crop_bbox_from_quad(gray, quad)
-        kp, des = self.sift.detectAndCompute(crop, None)
+        roi_bgr, _ = self._crop_bbox_from_quad(frame, quad)
+
+        top_rel, bottom_rel = self._detect_neck_band_in_roi(roi_bgr)
+        self.locked_top_rel = top_rel
+        self.locked_bottom_rel = bottom_rel
+
+        neck_mask = self._make_neck_band_mask(crop.shape, top_rel, bottom_rel)
+        kp, des = self.sift.detectAndCompute(crop, neck_mask)
 
         if des is None or kp is None or len(kp) < 12:
             self.is_tracking = False
-            print("Lock failed: not enough SIFT features in ROI.")
+            print("Lock failed: not enough SIFT features in neck band.")
             return False
 
         self.locked_quad = quad.copy()
         self.preview_quad = quad.copy()
-
-        roi_bgr, _ = self._crop_bbox_from_quad(frame, quad)
-        top_rel, bottom_rel = self._detect_neck_band_in_roi(roi_bgr)
-        self.locked_top_rel = top_rel
-        self.locked_bottom_rel = bottom_rel
 
         refined_quad = self._build_refined_quad_from_roi(quad, top_rel, bottom_rel)
         self.refined_quad = refined_quad.copy()
@@ -130,7 +132,14 @@ class GuitarNeckTracker:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         search_crop, (sx0, sy0, sx1, sy1) = self._crop_bbox_from_quad(gray, self.preview_quad)
-        curr_kp, curr_des = self.sift.detectAndCompute(search_crop, None)
+
+        search_mask = self._make_neck_band_mask(
+            search_crop.shape,
+            self.locked_top_rel,
+            self.locked_bottom_rel
+        )
+
+        curr_kp, curr_des = self.sift.detectAndCompute(search_crop, search_mask)
 
         if curr_des is None or curr_kp is None or len(curr_kp) < 12:
             self.tracking_ok = False
@@ -533,3 +542,19 @@ class GuitarNeckTracker:
         current_quad = self._scale_quad_about_center(current_quad, sx=sx, sy=sy)
         current_quad = self._clamp_quad_to_frame(current_quad, frame_shape)
         return current_quad
+
+    
+    def _make_neck_band_mask(self, shape, top_rel, bottom_rel, x_margin_rel=0.03):
+        h, w = shape[:2]
+        mask = np.zeros((h, w), dtype=np.uint8)
+
+        y0 = int(np.clip(top_rel * h, 0, h - 1))
+        y1 = int(np.clip(bottom_rel * h, 1, h))
+        x0 = int(np.clip(x_margin_rel * w, 0, w - 1))
+        x1 = int(np.clip((1.0 - x_margin_rel) * w, 1, w))
+
+        if y1 <= y0:
+            return mask
+
+        mask[y0:y1, x0:x1] = 255
+        return mask

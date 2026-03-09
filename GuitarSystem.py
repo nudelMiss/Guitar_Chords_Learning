@@ -376,13 +376,6 @@ class GuitarSystem:
         # -----------------------------
         # Base display
         # -----------------------------
-        if self.is_playing_song:
-            # Song mode: plain camera frame, no fretboard overlay
-            display_frame = frame.copy()
-        else:
-            # Learning / calibration mode: show tracker debug
-            display_frame = self.tracker.draw_debug(frame.copy())
-
         if self.is_playing_song or not self.show_tracker_lines:
             # Plain camera frame, no fretboard overlay
             display_frame = frame.copy()
@@ -419,6 +412,7 @@ class GuitarSystem:
             and self.tracker.is_strings_calibrated
             and len(self.tracker.fret_model_rel) >= 2
             and self.tracker.refined_quad is not None
+            and self.tracker.tracking_ok
         ):
             if self.is_playing_song:
                 display_frame = self._draw_chord_targets_only(display_frame)

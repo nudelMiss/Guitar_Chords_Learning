@@ -46,6 +46,11 @@ def send_command(key):
     with key_lock:
         last_web_key = ord(key.lower())
     return "OK", 200
+    
+@app.route('/set_tracker_lines/<state>')
+def set_tracker_lines(state):
+    guitar.show_tracker_lines = (state == "1")
+    return "OK", 200
 
 @app.route('/start_song/<song_id>')
 def start_song(song_id):
