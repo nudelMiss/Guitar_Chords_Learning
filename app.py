@@ -22,10 +22,12 @@ if not camera.isOpened():
 
 @app.route('/')
 def index():
+    guitar._reset_all()
     return render_template('index.html')
 
 @app.route('/chords-training')
 def chords_training():
+    guitar._reset_all()
     return render_template('chords-training.html')
 
 @app.route('/set_chord/<chord_name>')
@@ -38,6 +40,7 @@ def set_chord(chord_name):
 
 @app.route('/song-practice')
 def song_practice():
+    guitar._reset_all()
     return render_template('song-practice.html')
 
 @app.route('/send_command/<key>')
@@ -60,6 +63,13 @@ def start_song(song_id):
 @app.route('/play-song/<song_name>')
 def play_song(song_name):
     return render_template('play-song.html', song_name=song_name)
+
+@app.route('/stop_song')
+def stop_song():
+    guitar.stop_playing_song()
+    guitar.show_tracker_lines = True
+    guitar._reset_calibration_only()
+    return "OK", 200
 
 @app.route('/current_chord')
 def current_chord():
