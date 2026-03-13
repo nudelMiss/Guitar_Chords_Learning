@@ -1,3 +1,10 @@
+"""
+Provides hand landmark detection using MediaPipe.
+Identifies the location of fingertips and applies EMA filtering 
+to reduce jitter in coordinates for accurate chord validation.
+Input: Video frames.
+Output: Pixel coordinates of fingertips (Index, Middle, Ring, Pinky). """
+
 import cv2
 import mediapipe as mp
 from mediapipe.tasks import python

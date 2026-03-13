@@ -1,3 +1,11 @@
+"""
+This script acts as the main web server and orchestrator using Flask.
+It manages real-time video streaming, handles web routes for training/songs, 
+and coordinates between the GuitarSystem logic and the UI.
+
+Input: Raw camera frames and HTTP requests.
+Output: Processed video feed  and system status updates. """
+
 from flask import Flask, render_template, Response, jsonify
 import cv2
 import threading
@@ -34,8 +42,8 @@ def chords_training():
 def set_chord(chord_name):
     # This directly sets the chord in the guitar system
     guitar.current_chord_name = chord_name.upper()
-    import chords_data
-    guitar.current_chord_data = chords_data.CHORD_LIBRARY.get(guitar.current_chord_name)
+    import ChordsData
+    guitar.current_chord_data = ChordsData.CHORD_LIBRARY.get(guitar.current_chord_name)
     return "OK", 200
 
 @app.route('/song-practice')

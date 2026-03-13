@@ -1,7 +1,12 @@
-# Format: (fret_number, string_number, finger_id)
-# String numbering:
-# 1 = top string on screen
-# 6 = bottom string on screen
+"""
+Data repository for guitar chord fingerings.
+Defines the required fret/string positions and finger IDs for various chords.
+Input: Chord name strings.
+Output: Dictionary containing finger position tuples and string metadata.
+Format: (fret_number, string_number, finger_id)
+String numbering:
+1 = top string on screen
+6 = bottom string on screen"""
 
 CHORD_LIBRARY = {
     "C": {

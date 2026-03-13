@@ -1,11 +1,20 @@
+"""
+GuitarNeck:
+Handles guitar neck detection, tracking, and geometric modeling.
+Uses SIFT for tracking and Sobel filters for fret detection to map 
+the physical guitar neck into a virtual coordinate system.
+
+Input: Video frames.
+Output: Geometric fretboard model (coordinates for strings and frets). """
+
 import cv2
 import numpy as np
 
-
 def detect_strings_in_neck(frame, locked_model):
     """
-    Geometric string model only.
-    Returns 6 evenly-spaced relative string positions between y_t and y_b.
+    Geometric string model
+    Input: locked_model (guitar neck)
+    Output: 6 evenly-spaced relative string positions between y_t and y_b.
     """
     y_t = locked_model.get("y_t", 0)
     y_b = locked_model.get("y_b", 0)
