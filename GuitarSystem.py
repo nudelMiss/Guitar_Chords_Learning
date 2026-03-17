@@ -4,10 +4,9 @@ import string_and_frets as sf
 import time
 
 from songs_data import SONGS
-from hand_detector import HandDetector
 
 class GuitarSystem:
-    def __init__(self):
+    def __init__(self, use_mediapipe=True):
         # Tracker
         self.tracker = sf.GuitarNeckTracker()
 
@@ -26,8 +25,10 @@ class GuitarSystem:
         self.current_chord_index = 0
         self.chord_start_time = 0.0
 
-        # Hand detection
-        self.hand_detector = HandDetector(max_hands=2, detection_conf=0.6, tracking_conf=0.6)
+        # Hand detection - toggle between MediaPipe and classical CV
+        self.use_mediapipe = use_mediapipe
+        self._init_finger_detector()
+
         self.show_hand_debug = True
         self.show_tracker_lines = True
 
@@ -37,6 +38,17 @@ class GuitarSystem:
             "ring": 3,
             "pinky": 4
         }
+
+    def _init_finger_detector(self):
+        """Initialize finger detector based on use_mediapipe flag."""
+        if self.use_mediapipe:
+            from hand_detector import HandDetector
+            self.finger_detector = HandDetector(max_hands=2, detection_conf=0.6, tracking_conf=0.6)
+            print("[GuitarSystem] Using MediaPipe hand detection")
+        else:
+            from fingers_detector_cv import FingersDetectorCV
+            self.finger_detector = FingersDetectorCV()
+            print("[GuitarSystem] Using classical CV finger detection")
 
     # =========================================================
     # Song logic
@@ -71,14 +83,15 @@ class GuitarSystem:
         Reset only tracker/calibration-related state.
         Keep hand detector alive and do not recreate the whole system.
         """
-        self.tracker = sf.GuitarNeckTracker()       
+        self.tracker = sf.GuitarNeckTracker()
         self.current_chord_name = None
         self.current_chord_data = None
 
+        # Reset finger detector
+        self._init_finger_detector()
+
         # Reset tracker lines to visible
         self.show_tracker_lines = True
-
-        print("Calibration reset.")
 
         # Stop song playback / overlay
         self.current_lyric = ""
@@ -88,10 +101,6 @@ class GuitarSystem:
         self.current_chord_index = 0
         self.chord_start_time = 0.0
 
-        # Clear currently displayed chord from song mode
-        self.current_chord_name = None
-        self.current_chord_data = None
-
         print("Calibration reset.")
 
     def _reset_all(self):
@@ -99,6 +108,9 @@ class GuitarSystem:
         Full reset.
         """
         self.tracker = sf.GuitarNeckTracker()
+
+        # Reset finger detector
+        self._init_finger_detector()
 
         self.chord_idx = 0
         self.current_chord_name = None
@@ -198,7 +210,14 @@ class GuitarSystem:
         ):
             return display_frame
 
-        all_hands = self.hand_detector.detect_all_hands_fingertips(raw_frame)
+        if self.use_mediapipe:
+            return self._draw_chord_feedback_mediapipe(raw_frame, display_frame)
+        else:
+            return self._draw_chord_feedback_cv(raw_frame, display_frame)
+
+    def _draw_chord_feedback_mediapipe(self, raw_frame, display_frame):
+        """MediaPipe-based chord feedback (original approach)."""
+        all_hands = self.finger_detector.detect_all_hands_fingertips(raw_frame)
         if not all_hands:
             return display_frame
 
@@ -209,9 +228,9 @@ class GuitarSystem:
         tips = chosen_hand["tips"]
 
         if self.show_hand_debug:
-            self.hand_detector.last_landmarks_px = chosen_hand["landmarks"]
-            self.hand_detector.last_fingertips_px = chosen_hand["tips"]
-            display_frame = self.hand_detector.draw_debug(display_frame)
+            self.finger_detector.last_landmarks_px = chosen_hand["landmarks"]
+            self.finger_detector.last_fingertips_px = chosen_hand["tips"]
+            display_frame = self.finger_detector.draw_debug(display_frame)
 
         all_fingers_ok = True
 
@@ -222,11 +241,7 @@ class GuitarSystem:
                 all_fingers_ok = False
                 continue
 
-            x, y = self.tracker.get_dot_coordinates(
-                fret_num,
-                string_num,
-                mirror_frets=True
-            )
+            x, y = self.tracker.get_dot_coordinates(fret_num, string_num, mirror_frets=True)
 
             if x < 0 or y < 0:
                 all_fingers_ok = False
@@ -236,9 +251,8 @@ class GuitarSystem:
             for name, fx, fy in tips:
                 if req_finger_id is not None and self.finger_map.get(name) != req_finger_id:
                     continue
-
                 dist = ((x - fx) ** 2 + (y - fy) ** 2) ** 0.5
-                if dist < 40:
+                if dist < 15:
                     is_pressed = True
                     break
 
@@ -246,31 +260,63 @@ class GuitarSystem:
             if not is_pressed:
                 all_fingers_ok = False
 
-            cv2.circle(display_frame, (x, y), 12, dot_color, -1)
-            cv2.circle(display_frame, (x, y), 14, (255, 255, 255), 1)
+            cv2.circle(display_frame, (x, y), 4, dot_color, -1)
+            cv2.circle(display_frame, (x, y), 5, (255, 255, 255), 1)
 
             if req_finger_id is not None:
-                cv2.putText(
-                    display_frame,
-                    str(req_finger_id),
-                    (x - 6, y + 6),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (255, 255, 255),
-                    2
-                )
+                cv2.putText(display_frame, str(req_finger_id), (x - 4, y + 4),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
 
         msg = "CHORD PERFECT!" if all_fingers_ok else "Check positions"
         status_color = (0, 255, 0) if all_fingers_ok else (0, 165, 255)
-        cv2.putText(
-            display_frame,
-            msg,
-            (20, 110),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            status_color,
-            2
-        )
+        cv2.putText(display_frame, msg, (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
+
+        return display_frame
+
+    def _draw_chord_feedback_cv(self, raw_frame, display_frame):
+        """Classical CV position-based chord feedback."""
+        # Reset frame state in detector
+        self.finger_detector.reset_frame()
+
+        # Tell detector which chord we're checking (resets states on chord change)
+        self.finger_detector.set_current_chord(self.current_chord_name)
+
+        all_fingers_ok = True
+
+        for finger_info in self.current_chord_data.get("fingers", []):
+            fret_num, string_num, req_finger_id = self._parse_chord_finger_info(finger_info)
+
+            if fret_num is None or string_num is None:
+                all_fingers_ok = False
+                continue
+
+            x, y = self.tracker.get_dot_coordinates(fret_num, string_num, mirror_frets=True)
+
+            if x < 0 or y < 0:
+                all_fingers_ok = False
+                continue
+
+            # Check if finger is present at this position (with temporal persistence)
+            is_pressed = self.finger_detector.check_position(raw_frame, x, y, fret_num, string_num)
+
+            dot_color = (0, 255, 0) if is_pressed else (0, 0, 255)
+            if not is_pressed:
+                all_fingers_ok = False
+
+            cv2.circle(display_frame, (x, y), 4, dot_color, -1)
+            cv2.circle(display_frame, (x, y), 5, (255, 255, 255), 1)
+
+            if req_finger_id is not None:
+                cv2.putText(display_frame, str(req_finger_id), (x - 4, y + 4),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
+
+        # Draw debug visualization if enabled
+        if self.show_hand_debug:
+            display_frame = self.finger_detector.draw_debug(display_frame)
+
+        msg = "CHORD PERFECT!" if all_fingers_ok else "Check positions"
+        status_color = (0, 255, 0) if all_fingers_ok else (0, 165, 255)
+        cv2.putText(display_frame, msg, (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
 
         return display_frame
 
@@ -306,18 +352,18 @@ class GuitarSystem:
             if x < 0 or y < 0:
                 continue
 
-            cv2.circle(display_frame, (x, y), 12, (0, 255, 255), -1)
-            cv2.circle(display_frame, (x, y), 14, (255, 255, 255), 1)
+            cv2.circle(display_frame, (x, y), 4, (0, 255, 255), -1)
+            cv2.circle(display_frame, (x, y), 5, (255, 255, 255), 1)
 
             if req_finger_id is not None:
                 cv2.putText(
                     display_frame,
                     str(req_finger_id),
-                    (x - 6, y + 6),
+                    (x - 4, y + 4),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
+                    0.35,
                     (0, 0, 0),
-                    2
+                    1
                 )
 
         return display_frame
@@ -373,6 +419,15 @@ class GuitarSystem:
         if not just_locked:
             self.tracker.update(frame)
 
+        # Periodically re-detect frets to self-correct a weak initial lock
+        # Skip during song playback — fret model is already calibrated and
+        # re-detection during motion can introduce spurious peaks.
+        if (not self.is_playing_song
+                and self.tracker.is_tracking
+                and self.tracker.tracking_ok
+                and self.tracker.refined_quad is not None):
+            self.tracker.maybe_refine_frets(frame)
+
         # -----------------------------
         # Base display
         # -----------------------------
@@ -403,6 +458,9 @@ class GuitarSystem:
         # -----------------------------
         if key == ord('s') and not self.is_playing_song and self.tracker.is_tracking:
             self.tracker.calibrate_strings(frame)
+            # Learn fretboard appearance for classical CV finger detection
+            if not self.use_mediapipe and self.tracker.refined_quad is not None:
+                self.finger_detector.learn_fretboard(frame, self.tracker.refined_quad)
 
         # -----------------------------
         # Draw chord dots + hand feedback
@@ -434,17 +492,6 @@ class GuitarSystem:
                     2
                 )
 
-            if self.tracker.is_tracking and not self.tracker.is_strings_calibrated:
-                cv2.putText(
-                    display_frame,
-                    "Press [s] to calibrate strings",
-                    (20, 75),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 0, 255),
-                    2
-                )
-
             if not self.tracker.is_tracking:
                 cv2.putText(
                     display_frame,
@@ -453,6 +500,17 @@ class GuitarSystem:
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.7,
                     (255, 255, 255),
+                    2
+                )
+
+            if self.tracker.is_tracking and not self.tracker.is_strings_calibrated:
+                cv2.putText(
+                    display_frame,
+                    "Press [s] to calibrate strings",
+                    (20, 75),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 0, 255),
                     2
                 )
 
