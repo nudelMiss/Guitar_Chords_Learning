@@ -272,16 +272,16 @@ class GuitarNeckTracker:
     def draw_debug(self, frame):
         out = frame.copy()
 
-        # Preview mode only: show yellow ROI before lock/tracking
+        # Preview mode only: show blue ROI before lock/tracking
         if not self.is_tracking or self.refined_quad is None:
             preview_quad = self._rel_roi_to_abs_quad(frame.shape)
             preview_quad = self._clamp_quad_to_frame(preview_quad, frame.shape)
             pt = preview_quad.astype(int)
 
-            cv2.line(out, tuple(pt[0]), tuple(pt[1]), (0, 255, 255), 2)
-            cv2.line(out, tuple(pt[1]), tuple(pt[3]), (0, 255, 255), 2)
-            cv2.line(out, tuple(pt[3]), tuple(pt[2]), (0, 255, 255), 2)
-            cv2.line(out, tuple(pt[2]), tuple(pt[0]), (0, 255, 255), 2)
+            cv2.line(out, tuple(pt[0]), tuple(pt[1]), (255, 0, 0), 2)
+            cv2.line(out, tuple(pt[1]), tuple(pt[3]), (255, 0, 0), 2)
+            cv2.line(out, tuple(pt[3]), tuple(pt[2]), (255, 0, 0), 2)
+            cv2.line(out, tuple(pt[2]), tuple(pt[0]), (255, 0, 0), 2)
             return out
 
         # Tracking mode: do NOT draw yellow preview/search box anymore

@@ -6,7 +6,7 @@ import time
 from songs_data import SONGS
 
 class GuitarSystem:
-    def __init__(self, use_mediapipe=True):
+    def __init__(self, use_mediapipe=False):
         # Tracker
         self.tracker = sf.GuitarNeckTracker()
 

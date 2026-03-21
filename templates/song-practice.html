@@ -15,7 +15,7 @@
 <body class="bg-stone-100 h-screen flex flex-col">
 
     <header class="bg-white p-4 shadow-sm flex justify-between items-center z-10">
-        <button onclick="toggleSidebar()" class="flex items-center gap-2 px-5 py-2 bg-yellow-500 text-white rounded-xl font-bold hover:bg-yellow-600 transition-all shadow-md">
+        <button onclick="toggleSidebar()" class="flex items-center gap-2 px-5 py-2 bg-amber-600 text-white rounded-xl font-bold hover:bg-amber-700 transition-all shadow-md">
             <span>☰</span> Open Song Menu
         </button>
         <div id="active-song" class="text-stone-800 font-bold text-lg">No song selected</div>
@@ -24,66 +24,69 @@
         </div> 
     </header>
 
-    <div id="instruction-banner-container" class="py-4 flex justify-center px-8">
-        <div id="instruction-banner" class="bg-white px-8 py-4 rounded-[2rem] border-t-4 border-yellow-500 shadow-xl flex items-center gap-6 max-w-2xl transition-all">
-            <p class="text-stone-700 font-bold text-base">
-                Place the guitar neck inside the yellow box, like this:
-            </p>
-            <img src="{{ url_for('static', filename='images/calibration-example.jpeg') }}" alt="Calibration example" class="h-16 object-contain rounded-lg flex-shrink-0">
+    <div class="py-3 px-8 flex gap-8">
+        <div class="w-80 flex-shrink-0"></div>
+        <div class="flex-1 flex justify-center">
+            <div id="instruction-banner" class="flex items-center gap-6 transition-all">
+                <p class="text-stone-600 font-bold text-2xl whitespace-nowrap">
+                    Place the guitar neck inside the blue box, like this:
+                </p>
+                <img src="{{ url_for('static', filename='images/calibration-example.png') }}" alt="Calibration example" class="h-24 object-contain rounded-xl flex-shrink-0">
+            </div>
         </div>
     </div>
 
     <div class="flex flex-1 px-8 pt-4 pb-8 gap-8 min-h-0">
-        
-        <aside class="w-72 flex flex-col gap-4">
-            <div class="bg-white p-6 rounded-[2.5rem] shadow-xl border-t-8 border-yellow-500 h-full flex flex-col">
-                <h4 id="sidebar-title" class="text-center font-black text-stone-400 uppercase text-xs tracking-[0.2em] mb-6">Setup Process</h4>
-                
-                <div id="setup-controls" class="space-y-4">
-                    <div class="text-center space-y-2 mb-3">
-                        <p class="text-stone-500 text-xs">Make sure the guitar neck is straight and fully inside the box</p>
-                        <p class="text-stone-700 font-bold text-xs">Follow these steps:</p>
-                        <ul class="text-stone-500 text-xs text-left space-y-1 pl-3">
+
+        <aside class="w-80 flex flex-col gap-4">
+            <div class="bg-white p-8 rounded-[3rem] shadow-xl border-t-8 border-amber-500 h-full flex flex-col items-center">
+                <h4 id="sidebar-title" class="text-center font-black text-stone-400 uppercase text-sm tracking-[0.2em] mb-6">
+                    Setup Process
+                </h4>
+
+                <div id="setup-controls" class="w-full space-y-3">
+                    <div class="text-center space-y-2 mb-2">
+                        <p class="text-stone-500 text-sm">Make sure the guitar neck is straight and fully inside the box</p>
+                        <p class="text-stone-700 font-bold text-sm">Follow these steps:</p>
+                        <ul class="text-stone-500 text-sm text-left space-y-1 pl-4">
                             <li>• Press C to lock the neck</li>
                             <li>• If the frets look good, press S</li>
                             <li>• When you're ready, press START</li>
                         </ul>
                     </div>
-                    <div class="space-y-2">
-                        <button onclick="sendCmd('c')" class="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-xl hover:bg-red-700 transition-all shadow-lg active:scale-95">
-                            LOCK NECK (C)
-                        </button>
-                        <button onclick="sendCmd('r')" class="w-full py-3 bg-stone-100 text-stone-500 rounded-2xl font-bold hover:bg-stone-200 transition-all text-sm">
-                            RESET (R)
-                        </button>
-                    </div>
+                    <button onclick="sendCmd('c')" class="w-full py-4 bg-[#CC4433] text-white rounded-xl font-black text-xl hover:brightness-110 transition-all shadow-lg active:scale-95 uppercase">
+                        LOCK NECK (C)
+                    </button>
 
-                    <div class="h-px bg-stone-100 my-4"></div>
+                    <button onclick="sendCmd('r')" class="w-full py-2 bg-stone-100 text-stone-500 rounded-xl font-bold hover:bg-stone-200 transition-all text-sm uppercase">
+                        RESET (R)
+                    </button>
 
-                    <div class="space-y-2">
-                        <button onclick="sendCmd('s')" class="w-full py-5 bg-amber-500 text-white rounded-2xl font-black text-xl hover:bg-amber-600 transition-all shadow-lg active:scale-95">
-                            LOCK STRINGS (S)
-                        </button>
-                        <button onclick="sendCmd('x')" class="w-full py-3 bg-stone-100 text-stone-500 rounded-2xl font-bold hover:bg-stone-200 transition-all text-sm">
-                            CLEAR (X)
-                        </button>
-                    </div>
+                    <div class="h-px bg-stone-100 my-2"></div>
+
+                    <button onclick="sendCmd('s')" class="w-full py-4 bg-[#E69940] text-white rounded-xl font-black text-xl hover:brightness-110 transition-all shadow-lg active:scale-95 uppercase">
+                        LOCK STRINGS (S)
+                    </button>
+
+                    <button onclick="sendCmd('x')" class="w-full py-2 bg-stone-100 text-stone-500 rounded-xl font-bold hover:bg-stone-200 transition-all text-sm uppercase">
+                        CLEAR (X)
+                    </button>
                 </div>
 
-                <div id="play-controls" class="hidden flex-1 flex flex-col items-center justify-center space-y-6">
+                <div id="play-controls" class="hidden w-full flex-1 flex flex-col items-center justify-center space-y-6">
                     <div class="text-center">
                         <p class="text-stone-400 font-bold text-sm uppercase tracking-widest mb-1">Playing</p>
-                        <p id="playing-song-name" class="text-2xl font-black text-yellow-600 leading-tight">-</p>
+                        <p id="playing-song-name" class="text-2xl font-black text-amber-600 leading-tight">-</p>
                     </div>
-                    
-                    <div class="bg-stone-100 w-full rounded-2xl p-6 text-center shadow-inner border-2 border-stone-200">
-                        <p class="text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">Current Chord</p>
-                        <p id="current-chord-display" class="text-6xl font-black text-stone-800">Ready</p>
+
+                    <div class="bg-white w-full rounded-3xl p-8 text-center border-2 border-amber-50 shadow-inner">
+                        <p class="text-xs font-black text-stone-400 uppercase tracking-widest mb-4">Current Chord</p>
+                        <p id="current-chord-display" class="text-7xl font-black text-amber-600">Ready</p>
                     </div>
                 </div>
 
-                <div class="mt-auto pt-6 border-t border-stone-50">
-                    <button id="start-btn" onclick="startPractice()" disabled class="w-full py-6 bg-stone-300 text-white rounded-2xl font-black text-2xl cursor-not-allowed transition-all shadow-xl uppercase tracking-tighter">
+                <div class="mt-auto w-full pt-6">
+                    <button id="start-btn" onclick="startPractice()" disabled class="w-full py-4 bg-stone-300 text-white rounded-xl font-black text-xl cursor-not-allowed transition-all shadow-xl uppercase">
                         START
                     </button>
                 </div>
@@ -92,8 +95,8 @@
 
         <div class="flex-1 flex flex-col gap-4"> 
     
-            <div id="lyric-container" class="hidden opacity-0 transition-opacity duration-500 bg-white p-6 rounded-3xl shadow-xl border-b-4 border-yellow-500 text-center">
-                <p id="section-text" class="text-sm font-bold text-yellow-600 uppercase tracking-widest mb-2"></p>
+            <div id="lyric-container" class="hidden opacity-0 transition-opacity duration-500 bg-white p-6 rounded-3xl shadow-xl border-b-4 border-amber-500 text-center">
+                <p id="section-text" class="text-sm font-bold text-amber-600 uppercase tracking-widest mb-2"></p>
                 <p id="lyric-text" class="text-3xl font-black italic uppercase text-stone-800"></p>
             </div>
         
@@ -112,12 +115,12 @@
 
     <aside id="song-sidebar" class="fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 sidebar-transition sidebar-hidden flex flex-col">
         <div class="p-8 border-b flex justify-between items-center">
-            <h2 class="text-2xl font-black text-yellow-600">SONGS</h2>
+            <h2 class="text-2xl font-black text-amber-600">SONGS</h2>
             <button onclick="toggleSidebar()" class="text-stone-300 hover:text-stone-900 text-3xl">&times;</button>
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-2">
-            <button onclick="selectSong('Let It Be')" class="w-full text-left p-5 rounded-2xl hover:bg-yellow-50 font-bold text-stone-800 transition-all">Let It Be</button>
-            <button onclick="selectSong('Wonderwall')" class="w-full text-left p-5 rounded-2xl hover:bg-yellow-50 font-bold text-stone-800 transition-all">Wonderwall</button>
+            <button onclick="selectSong('Let It Be')" class="w-full text-left p-5 rounded-2xl hover:bg-amber-50 font-bold text-stone-800 transition-all">Let It Be</button>
+            <button onclick="selectSong('Wonderwall')" class="w-full text-left p-5 rounded-2xl hover:bg-amber-50 font-bold text-stone-800 transition-all">Wonderwall</button>
         </div>
     </aside>
 
@@ -160,7 +163,7 @@
             const setupControls = document.getElementById('setup-controls');
             const playControls = document.getElementById('play-controls');
             const sidebarTitle = document.getElementById('sidebar-title');
-            const instructionBannerContainer = document.getElementById('instruction-banner-container');
+            const instructionBannerContainer = document.getElementById('instruction-banner');
 
             if (!isPlaying) {
                 if (currentSong !== null && areStringsCalibrated) {
@@ -257,7 +260,7 @@
             const setupControls = document.getElementById('setup-controls');
             const playControls = document.getElementById('play-controls');
             const sidebarTitle = document.getElementById('sidebar-title');
-            const instructionBannerContainer = document.getElementById('instruction-banner-container');
+            const instructionBannerContainer = document.getElementById('instruction-banner');
 
             isPlaying = false;
 

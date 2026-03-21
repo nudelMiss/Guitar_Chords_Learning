@@ -27,12 +27,15 @@
         </div>
     </header>
 
-    <div class="py-4 flex justify-center px-8">
-        <div id="instruction-banner" class="bg-white px-8 py-4 rounded-[2rem] border-t-4 border-amber-500 shadow-xl flex items-center gap-6 max-w-2xl transition-all">
-            <p class="text-stone-700 font-bold text-base">
-                Place the guitar neck inside the yellow box, like this:
-            </p>
-            <img src="{{ url_for('static', filename='images/calibration-example.jpeg') }}" alt="Calibration example" class="h-16 object-contain rounded-lg flex-shrink-0">
+    <div class="py-3 px-8 flex gap-8">
+        <div class="w-80 flex-shrink-0"></div>
+        <div class="flex-1 flex justify-center">
+            <div id="instruction-banner" class="flex items-center gap-6 transition-all">
+                <p class="text-stone-600 font-bold text-2xl whitespace-nowrap">
+                    Place the guitar neck inside the blue box, like this:
+                </p>
+                <img src="{{ url_for('static', filename='images/calibration-example.png') }}" alt="Calibration example" class="h-24 object-contain rounded-xl flex-shrink-0">
+            </div>
         </div>
     </div>
 
@@ -40,35 +43,35 @@
         
         <aside class="w-80 flex flex-col gap-4">
             <div class="bg-white p-8 rounded-[3rem] shadow-xl border-t-8 border-amber-500 h-full flex flex-col items-center">
-                <h4 id="sidebar-title" class="text-center font-black text-stone-400 uppercase text-sm tracking-[0.2em] mb-8">
+                <h4 id="sidebar-title" class="text-center font-black text-stone-400 uppercase text-sm tracking-[0.2em] mb-6">
                     Setup Process
                 </h4>
                 
-                <div id="setup-controls" class="w-full space-y-6">
-                    <div class="text-center space-y-2 mb-4">
+                <div id="setup-controls" class="w-full space-y-3">
+                    <div class="text-center space-y-2 mb-2">
                         <p class="text-stone-500 text-sm">Make sure the guitar neck is straight and fully inside the box</p>
                         <p class="text-stone-700 font-bold text-sm">Follow these steps:</p>
-                        <ul class="text-stone-500 text-xs text-left space-y-1 pl-4">
+                        <ul class="text-stone-500 text-sm text-left space-y-1 pl-4">
                             <li>• Press C to lock the neck</li>
                             <li>• If the frets look good, press S</li>
                             <li>• When you're ready, press START</li>
                         </ul>
                     </div>
-                    <button onclick="sendCmd('c')" class="w-full py-6 bg-[#CC4433] text-white rounded-[2rem] font-black text-2xl hover:brightness-110 transition-all shadow-lg active:scale-95 uppercase">
+                    <button onclick="sendCmd('c')" class="w-full py-4 bg-[#CC4433] text-white rounded-xl font-black text-xl hover:brightness-110 transition-all shadow-lg active:scale-95 uppercase">
                         LOCK NECK (C)
                     </button>
                     
-                    <button onclick="sendCmd('r')" class="w-full py-3 bg-stone-100 text-stone-500 rounded-2xl font-bold hover:bg-stone-200 transition-all text-sm uppercase">
+                    <button onclick="sendCmd('r')" class="w-full py-2 bg-stone-100 text-stone-500 rounded-xl font-bold hover:bg-stone-200 transition-all text-sm uppercase">
                         RESET (R)
                     </button>
         
-                    <div class="h-px bg-stone-100 my-4"></div>
+                    <div class="h-px bg-stone-100 my-2"></div>
         
-                    <button onclick="sendCmd('s')" class="w-full py-6 bg-[#E69940] text-white rounded-[2rem] font-black text-2xl hover:brightness-110 transition-all shadow-lg active:scale-95 uppercase">
+                    <button onclick="sendCmd('s')" class="w-full py-4 bg-[#E69940] text-white rounded-xl font-black text-xl hover:brightness-110 transition-all shadow-lg active:scale-95 uppercase">
                         LOCK STRINGS (S)
                     </button>
                     
-                    <button onclick="sendCmd('x')" class="w-full py-3 bg-stone-100 text-stone-500 rounded-2xl font-bold hover:bg-stone-200 transition-all text-sm uppercase">
+                    <button onclick="sendCmd('x')" class="w-full py-2 bg-stone-100 text-stone-500 rounded-xl font-bold hover:bg-stone-200 transition-all text-sm uppercase">
                         CLEAR (X)
                     </button>
                 </div>
@@ -80,8 +83,8 @@
                     </div>
                 </div>
         
-                <div class="mt-auto w-full pt-8">
-                    <button id="start-btn" onclick="startTraining()" disabled class="w-full py-6 bg-stone-300 text-white rounded-[2rem] font-black text-2xl cursor-not-allowed transition-all shadow-xl uppercase">
+                <div class="mt-auto w-full pt-6">
+                    <button id="start-btn" onclick="startTraining()" disabled class="w-full py-4 bg-stone-300 text-white rounded-xl font-black text-xl cursor-not-allowed transition-all shadow-xl uppercase">
                         START
                     </button>
                 </div>
