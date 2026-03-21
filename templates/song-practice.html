@@ -19,24 +19,36 @@
             <span>☰</span> Open Song Menu
         </button>
         <div id="active-song" class="text-stone-800 font-bold text-lg">No song selected</div>
-        <div class="w-40"></div> 
+        <div class="w-64 text-right">
+            <a href="/#features" class="text-stone-400 hover:text-stone-800 font-bold">← Back to Home</a>
+        </div> 
     </header>
 
-    <div class="py-6 flex justify-center">
-        <div id="instruction-banner" class="bg-stone-800 px-12 py-5 rounded-3xl border-b-4 border-yellow-500 shadow-xl text-center max-w-2xl transition-all">
-            <p class="text-yellow-400 font-bold text-lg italic">
-                Follow steps 1 and 2 in the sidebar
+    <div id="instruction-banner-container" class="py-4 flex justify-center px-8">
+        <div id="instruction-banner" class="bg-white px-8 py-4 rounded-[2rem] border-t-4 border-yellow-500 shadow-xl flex items-center gap-6 max-w-2xl transition-all">
+            <p class="text-stone-700 font-bold text-base">
+                Place the guitar neck inside the yellow box, like this:
             </p>
+            <img src="{{ url_for('static', filename='images/calibration-example.jpeg') }}" alt="Calibration example" class="h-16 object-contain rounded-lg flex-shrink-0">
         </div>
     </div>
 
-    <div class="flex flex-1 px-8 pb-8 gap-8 min-h-0">
+    <div class="flex flex-1 px-8 pt-4 pb-8 gap-8 min-h-0">
         
         <aside class="w-72 flex flex-col gap-4">
             <div class="bg-white p-6 rounded-[2.5rem] shadow-xl border-t-8 border-yellow-500 h-full flex flex-col">
                 <h4 id="sidebar-title" class="text-center font-black text-stone-400 uppercase text-xs tracking-[0.2em] mb-6">Setup Process</h4>
                 
                 <div id="setup-controls" class="space-y-4">
+                    <div class="text-center space-y-2 mb-3">
+                        <p class="text-stone-500 text-xs">Make sure the guitar neck is straight and fully inside the box</p>
+                        <p class="text-stone-700 font-bold text-xs">Follow these steps:</p>
+                        <ul class="text-stone-500 text-xs text-left space-y-1 pl-3">
+                            <li>• Press C to lock the neck</li>
+                            <li>• If the frets look good, press S</li>
+                            <li>• When you're ready, press START</li>
+                        </ul>
+                    </div>
                     <div class="space-y-2">
                         <button onclick="sendCmd('c')" class="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-xl hover:bg-red-700 transition-all shadow-lg active:scale-95">
                             LOCK NECK (C)
@@ -80,7 +92,8 @@
 
         <div class="flex-1 flex flex-col gap-4"> 
     
-            <div id="lyric-container" class="opacity-0 transition-opacity duration-500 bg-white p-6 rounded-3xl shadow-xl border-b-4 border-yellow-500 text-center">
+            <div id="lyric-container" class="hidden opacity-0 transition-opacity duration-500 bg-white p-6 rounded-3xl shadow-xl border-b-4 border-yellow-500 text-center">
+                <p id="section-text" class="text-sm font-bold text-yellow-600 uppercase tracking-widest mb-2"></p>
                 <p id="lyric-text" class="text-3xl font-black italic uppercase text-stone-800"></p>
             </div>
         
@@ -104,7 +117,7 @@
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-2">
             <button onclick="selectSong('Let It Be')" class="w-full text-left p-5 rounded-2xl hover:bg-yellow-50 font-bold text-stone-800 transition-all">Let It Be</button>
-            <button class="w-full text-left p-5 rounded-2xl hover:bg-yellow-50 font-bold text-stone-800 transition-all">More Coming Soon..</button>
+            <button onclick="selectSong('Wonderwall')" class="w-full text-left p-5 rounded-2xl hover:bg-yellow-50 font-bold text-stone-800 transition-all">Wonderwall</button>
         </div>
     </aside>
 
@@ -147,7 +160,7 @@
             const setupControls = document.getElementById('setup-controls');
             const playControls = document.getElementById('play-controls');
             const sidebarTitle = document.getElementById('sidebar-title');
-            const instructionBanner = document.getElementById('instruction-banner');
+            const instructionBannerContainer = document.getElementById('instruction-banner-container');
 
             if (!isPlaying) {
                 if (currentSong !== null && areStringsCalibrated) {
@@ -159,9 +172,9 @@
                     document.getElementById('playing-song-name').innerText =
                         document.getElementById('active-song').innerText;
                     sidebarTitle.innerText = "Song Mode";
-                    instructionBanner.classList.add('opacity-0');
+                    instructionBannerContainer.classList.add('hidden');
 
-                    startBtn.innerText = "CALIBRATE";
+                    startBtn.innerText = "RESET SETUP";
                     startBtn.classList.replace('bg-green-600', 'bg-amber-500');
                     startBtn.classList.replace('hover:bg-green-700', 'hover:bg-amber-600');
 
@@ -173,15 +186,56 @@
                             .then(data => {
                                 const container = document.getElementById('lyric-container');
                                 const textElement = document.getElementById('lyric-text');
+                                const sectionElement = document.getElementById('section-text');
 
-                                if (isPlaying && data.lyric !== "") {
+                                if (data.is_playing) {
+                                    container.classList.remove('hidden');
                                     container.classList.remove('opacity-0');
-                                    textElement.innerText = data.lyric;
+
+                                    if (data.lyric !== "") {
+                                        // Show actual lyrics
+                                        textElement.innerText = data.lyric;
+                                        textElement.classList.remove('text-xl', 'not-italic');
+                                        textElement.classList.add('text-3xl', 'italic');
+                                    } else {
+                                        // Show transition message
+                                        textElement.innerText = "Keep playing - you're doing great!";
+                                        textElement.classList.remove('text-3xl', 'italic');
+                                        textElement.classList.add('text-xl', 'not-italic');
+                                    }
+                                } else if (isPlaying) {
+                                    // Countdown - show empty box (use nbsp to maintain height)
+                                    container.classList.remove('hidden');
+                                    container.classList.remove('opacity-0');
+                                    textElement.innerHTML = "&nbsp;";
+                                    textElement.classList.remove('text-xl', 'not-italic');
+                                    textElement.classList.add('text-3xl', 'italic');
+                                    sectionElement.classList.add('hidden');
                                 } else {
                                     container.classList.add('opacity-0');
+                                    container.classList.add('hidden');
                                 }
 
-                                document.getElementById('current-chord-display').innerText = data.chord;
+                                // Display section name
+                                if (data.section) {
+                                    sectionElement.innerText = data.section;
+                                    sectionElement.classList.remove('hidden');
+                                } else {
+                                    sectionElement.classList.add('hidden');
+                                }
+
+                                const chordEl = document.getElementById('current-chord-display');
+                                chordEl.innerText = data.chord;
+
+                                // Adjust font size based on chord name length
+                                chordEl.classList.remove('text-6xl', 'text-5xl', 'text-4xl');
+                                if (data.chord.length <= 2) {
+                                    chordEl.classList.add('text-6xl');
+                                } else if (data.chord.length <= 4) {
+                                    chordEl.classList.add('text-5xl');
+                                } else {
+                                    chordEl.classList.add('text-4xl');
+                                }
 
                                 if (isPlaying && data.chord === "Ready") {
                                     // Song ended naturally
@@ -203,7 +257,7 @@
             const setupControls = document.getElementById('setup-controls');
             const playControls = document.getElementById('play-controls');
             const sidebarTitle = document.getElementById('sidebar-title');
-            const instructionBanner = document.getElementById('instruction-banner');
+            const instructionBannerContainer = document.getElementById('instruction-banner-container');
 
             isPlaying = false;
 
@@ -211,7 +265,7 @@
             playControls.classList.add('hidden');
 
             sidebarTitle.innerText = "Setup Process";
-            instructionBanner.classList.remove('opacity-0');
+            instructionBannerContainer.classList.remove('hidden');
 
             startBtn.innerText = "START";
             startBtn.classList.replace('bg-amber-500', 'bg-green-600');
@@ -223,7 +277,9 @@
             }
 
             document.getElementById('current-chord-display').innerText = "Ready";
-            document.getElementById('lyric-container').classList.add('opacity-0');
+            const lyricContainer = document.getElementById('lyric-container');
+            lyricContainer.classList.add('opacity-0');
+            lyricContainer.classList.add('hidden');
 
             if (sendStopToServer) {
                 fetch('/stop_song');

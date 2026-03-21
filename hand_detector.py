@@ -98,7 +98,7 @@ class HandDetector:
         for a, b in HAND_CONNECTIONS:
             xa, ya = self.last_landmarks_px[a]
             xb, yb = self.last_landmarks_px[b]
-            cv2.line(out, (xa, ya), (xb, yb), (255, 255, 255), 2)
+            cv2.line(out, (xa, ya), (xb, yb), (255, 255, 255), 1)
 
         # draw points
         for (x, y) in self.last_landmarks_px:
@@ -107,9 +107,7 @@ class HandDetector:
         # draw fingertips
         if self.last_fingertips_px:
             for (name, x, y) in self.last_fingertips_px:
-                cv2.circle(out, (x, y), 8, (255, 0, 0), -1)
-                cv2.putText(out, name, (x + 6, y - 6),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                cv2.circle(out, (x, y), 4, (255, 0, 0), -1)
 
         return out
 

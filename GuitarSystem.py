@@ -19,11 +19,17 @@ class GuitarSystem:
 
         # Song management
         self.current_lyric = ""
+        self.current_section = ""
         self.is_playing_song = False
         self.active_song_id = None
         self.song_chords_sequence = []
         self.current_chord_index = 0
         self.chord_start_time = 0.0
+
+        # Countdown state
+        self.countdown_active = False
+        self.countdown_start_time = 0.0
+        self.countdown_duration = 3  # seconds
 
         # Hand detection - toggle between MediaPipe and classical CV
         self.use_mediapipe = use_mediapipe
@@ -54,21 +60,25 @@ class GuitarSystem:
     # Song logic
     # =========================================================
     def start_playing_song(self, song_id):
-        self.is_playing_song = True
         self.active_song_id = song_id
         self.song_chords_sequence = SONGS.get(song_id, [])
         self.current_chord_index = 0
-        self.chord_start_time = time.time()
         self._update_chord_from_sequence()
-        print(f"Started playing: {song_id}")
+        # Start countdown instead of playing immediately
+        self.countdown_active = True
+        self.countdown_start_time = time.time()
+        self.is_playing_song = False  # Will be set True after countdown
+        print(f"Starting countdown for: {song_id}")
 
     def stop_playing_song(self):
         self.is_playing_song = False
+        self.countdown_active = False
         self.active_song_id = None
         self.song_chords_sequence = []
         self.current_chord_name = None
         self.current_chord_data = None
         self.current_lyric = ""
+        self.current_section = ""
         print("Stopped playing song. Chord cleared from screen.")
 
     def _update_chord_from_sequence(self):
@@ -77,6 +87,9 @@ class GuitarSystem:
             self.current_chord_name = node["chord"]
             self.current_chord_data = chords_data.get_chord_data(self.current_chord_name)
             self.current_lyric = node.get("lyric", "")
+            section = node.get("section", "")
+            if section:
+                self.current_section = section
 
     def _reset_calibration_only(self):
         """
@@ -95,11 +108,13 @@ class GuitarSystem:
 
         # Stop song playback / overlay
         self.current_lyric = ""
+        self.current_section = ""
         self.is_playing_song = False
         self.active_song_id = None
         self.song_chords_sequence = []
         self.current_chord_index = 0
         self.chord_start_time = 0.0
+        self.countdown_active = False
 
         print("Calibration reset.")
 
@@ -124,11 +139,13 @@ class GuitarSystem:
         self.show_tracker_lines = True
 
         self.current_lyric = ""
+        self.current_section = ""
         self.is_playing_song = False
         self.active_song_id = None
         self.song_chords_sequence = []
         self.current_chord_index = 0
         self.chord_start_time = 0.0
+        self.countdown_active = False
 
         print("Reset All.")
 
@@ -260,12 +277,12 @@ class GuitarSystem:
             if not is_pressed:
                 all_fingers_ok = False
 
-            cv2.circle(display_frame, (x, y), 4, dot_color, -1)
-            cv2.circle(display_frame, (x, y), 5, (255, 255, 255), 1)
+            cv2.circle(display_frame, (x, y), 6, dot_color, -1)
+            cv2.circle(display_frame, (x, y), 7, (255, 255, 255), 1)
 
             if req_finger_id is not None:
                 cv2.putText(display_frame, str(req_finger_id), (x - 4, y + 4),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.38, (255, 255, 255), 1)
 
         msg = "CHORD PERFECT!" if all_fingers_ok else "Check positions"
         status_color = (0, 255, 0) if all_fingers_ok else (0, 165, 255)
@@ -303,12 +320,12 @@ class GuitarSystem:
             if not is_pressed:
                 all_fingers_ok = False
 
-            cv2.circle(display_frame, (x, y), 4, dot_color, -1)
-            cv2.circle(display_frame, (x, y), 5, (255, 255, 255), 1)
+            cv2.circle(display_frame, (x, y), 6, dot_color, -1)
+            cv2.circle(display_frame, (x, y), 7, (255, 255, 255), 1)
 
             if req_finger_id is not None:
                 cv2.putText(display_frame, str(req_finger_id), (x - 4, y + 4),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.38, (255, 255, 255), 1)
 
         # Draw debug visualization if enabled
         if self.show_hand_debug:
@@ -352,8 +369,8 @@ class GuitarSystem:
             if x < 0 or y < 0:
                 continue
 
-            cv2.circle(display_frame, (x, y), 4, (0, 255, 255), -1)
-            cv2.circle(display_frame, (x, y), 5, (255, 255, 255), 1)
+            cv2.circle(display_frame, (x, y), 6, (0, 255, 255), -1)
+            cv2.circle(display_frame, (x, y), 7, (255, 255, 255), 1)
 
             if req_finger_id is not None:
                 cv2.putText(
@@ -361,7 +378,7 @@ class GuitarSystem:
                     str(req_finger_id),
                     (x - 4, y + 4),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.35,
+                    0.38,
                     (0, 0, 0),
                     1
                 )
@@ -431,12 +448,37 @@ class GuitarSystem:
         # -----------------------------
         # Base display
         # -----------------------------
-        if self.is_playing_song or not self.show_tracker_lines:
+        if self.is_playing_song or self.countdown_active or not self.show_tracker_lines:
             # Plain camera frame, no fretboard overlay
             display_frame = frame.copy()
         else:
             # Learning / calibration mode: show tracker debug
             display_frame = self.tracker.draw_debug(frame.copy())
+
+        # -----------------------------
+        # Countdown before song starts
+        # -----------------------------
+        if self.countdown_active:
+            elapsed = time.time() - self.countdown_start_time
+            remaining = self.countdown_duration - elapsed
+            if remaining <= 0:
+                # Countdown finished, start song
+                self.countdown_active = False
+                self.is_playing_song = True
+                self.chord_start_time = time.time()
+                print(f"Started playing: {self.active_song_id}")
+            else:
+                # Draw countdown number (big, centered)
+                countdown_num = int(remaining) + 1
+                text = str(countdown_num)
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                font_scale = 5.0
+                thickness = 8
+                (text_w, text_h), _ = cv2.getTextSize(text, font, font_scale, thickness)
+                h, w = display_frame.shape[:2]
+                x = (w - text_w) // 2
+                y = (h + text_h) // 2
+                cv2.putText(display_frame, text, (x, y), font, font_scale, (255, 255, 255), thickness)
 
         # -----------------------------
         # Song timing
@@ -471,6 +513,7 @@ class GuitarSystem:
             and len(self.tracker.fret_model_rel) >= 2
             and self.tracker.refined_quad is not None
             and self.tracker.tracking_ok
+            and not self.countdown_active
         ):
             if self.is_playing_song:
                 display_frame = self._draw_chord_targets_only(display_frame)
@@ -480,7 +523,7 @@ class GuitarSystem:
         # -----------------------------
         # HUD
         # -----------------------------
-        if not self.is_playing_song:
+        if not self.is_playing_song and not self.countdown_active:
             if self.current_chord_name:
                 cv2.putText(
                     display_frame,

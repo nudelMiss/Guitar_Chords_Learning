@@ -118,7 +118,9 @@ def current_chord():
     with guitar_lock:
         chord = guitar.current_chord_name if guitar.current_chord_name else "Ready"
         lyric = guitar.current_lyric if guitar.is_playing_song else ""
-    return jsonify({"chord": chord, "lyric": lyric})
+        section = guitar.current_section if guitar.is_playing_song else ""
+        is_playing = guitar.is_playing_song
+    return jsonify({"chord": chord, "lyric": lyric, "section": section, "is_playing": is_playing})
 
 def generate_frames():
     global last_web_key

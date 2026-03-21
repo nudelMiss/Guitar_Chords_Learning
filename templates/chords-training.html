@@ -23,19 +23,20 @@
         <div id="active-chord-display" class="text-stone-800 font-bold text-lg">No chord selected</div>
     
         <div class="w-64 text-right">
-            <a href="/" class="text-stone-400 hover:text-stone-800 font-bold">← Back to Home</a>
+            <a href="/#features" class="text-stone-400 hover:text-stone-800 font-bold">← Back to Home</a>
         </div>
     </header>
 
-    <div class="py-6 flex justify-center">
-        <div id="instruction-banner" class="bg-stone-800 px-12 py-5 rounded-3xl border-b-4 border-amber-500 shadow-xl text-center max-w-2xl transition-all">
-            <p class="text-amber-400 font-bold text-lg italic">
-                Follow steps 1 and 2 in the sidebar
+    <div class="py-4 flex justify-center px-8">
+        <div id="instruction-banner" class="bg-white px-8 py-4 rounded-[2rem] border-t-4 border-amber-500 shadow-xl flex items-center gap-6 max-w-2xl transition-all">
+            <p class="text-stone-700 font-bold text-base">
+                Place the guitar neck inside the yellow box, like this:
             </p>
+            <img src="{{ url_for('static', filename='images/calibration-example.jpeg') }}" alt="Calibration example" class="h-16 object-contain rounded-lg flex-shrink-0">
         </div>
     </div>
 
-    <div class="flex flex-1 px-8 pb-8 gap-8 min-h-0">
+    <div class="flex flex-1 px-8 pt-4 pb-8 gap-8 min-h-0">
         
         <aside class="w-80 flex flex-col gap-4">
             <div class="bg-white p-8 rounded-[3rem] shadow-xl border-t-8 border-amber-500 h-full flex flex-col items-center">
@@ -44,6 +45,15 @@
                 </h4>
                 
                 <div id="setup-controls" class="w-full space-y-6">
+                    <div class="text-center space-y-2 mb-4">
+                        <p class="text-stone-500 text-sm">Make sure the guitar neck is straight and fully inside the box</p>
+                        <p class="text-stone-700 font-bold text-sm">Follow these steps:</p>
+                        <ul class="text-stone-500 text-xs text-left space-y-1 pl-4">
+                            <li>• Press C to lock the neck</li>
+                            <li>• If the frets look good, press S</li>
+                            <li>• When you're ready, press START</li>
+                        </ul>
+                    </div>
                     <button onclick="sendCmd('c')" class="w-full py-6 bg-[#CC4433] text-white rounded-[2rem] font-black text-2xl hover:brightness-110 transition-all shadow-lg active:scale-95 uppercase">
                         LOCK NECK (C)
                     </button>
@@ -71,7 +81,7 @@
                 </div>
         
                 <div class="mt-auto w-full pt-8">
-                    <button id="start-btn" onclick="startTraining()" disabled class="w-full py-7 bg-stone-300 text-white rounded-[2rem] font-black text-3xl cursor-not-allowed transition-all shadow-xl uppercase">
+                    <button id="start-btn" onclick="startTraining()" disabled class="w-full py-6 bg-stone-300 text-white rounded-[2rem] font-black text-2xl cursor-not-allowed transition-all shadow-xl uppercase">
                         START
                     </button>
                 </div>
@@ -98,12 +108,13 @@
             <button onclick="toggleSidebar()" class="text-stone-300 hover:text-stone-900 text-3xl">&times;</button>
         </div>
         <div class="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-2" id="chord-list">
-            <button onclick="selectChord('C')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">C</button>
-            <button onclick="selectChord('G')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">G</button>
-            <button onclick="selectChord('D')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">D</button>
-            <button onclick="selectChord('Am')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">Am</button>
-            <button onclick="selectChord('Em')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">Em</button>
-            <button onclick="selectChord('F')" class="p-4 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-xl">F</button>
+            <button onclick="selectChord('C')" class="p-3 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-lg">C</button>
+            <button onclick="selectChord('G')" class="p-3 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-lg">G</button>
+            <button onclick="selectChord('D')" class="p-3 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-lg">D</button>
+            <button onclick="selectChord('Am')" class="p-3 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-lg">Am</button>
+            <button onclick="selectChord('Em')" class="p-3 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-lg">Em</button>
+            <button onclick="selectChord('F')" class="p-3 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-lg">F</button>
+            <button onclick="selectChord('A7SUS4')" class="p-3 rounded-xl bg-stone-50 hover:bg-amber-100 font-bold text-lg col-span-2">A7sus4</button>
         </div>
     </aside>
 
@@ -161,7 +172,7 @@
             const btn = document.getElementById('start-btn');
             btn.innerText = "RESET SETUP";
             btn.onclick = () => location.reload();
-            btn.classList.replace('bg-green-600', 'bg-stone-800');
+            btn.classList.replace('bg-green-600', 'bg-amber-500');
 
             // Hide tracker/fretboard overlay after entering training mode
             fetch('/set_tracker_lines/0').catch(err => console.error(err));
@@ -172,7 +183,19 @@
 
         function selectChord(chord) {
             document.getElementById('active-chord-display').innerText = "Practicing: " + chord;
-            document.getElementById('current-chord-name').innerText = chord;
+
+            const chordEl = document.getElementById('current-chord-name');
+            chordEl.innerText = chord;
+
+            // Adjust font size based on chord name length
+            chordEl.classList.remove('text-7xl', 'text-6xl', 'text-5xl');
+            if (chord.length <= 2) {
+                chordEl.classList.add('text-7xl');
+            } else if (chord.length <= 4) {
+                chordEl.classList.add('text-6xl');
+            } else {
+                chordEl.classList.add('text-5xl');
+            }
 
             fetch(`/set_chord/${chord}`).catch(err => console.error(err));
             toggleSidebar();
