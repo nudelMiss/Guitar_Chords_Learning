@@ -1,11 +1,6 @@
 """
-Classical CV finger detection for guitar chord learning.
-Uses position-targeted verification with finger-specific discrimination.
-
-Key insight: We KNOW where fingers should be (chord positions).
-We verify presence AND check that it looks like a fingertip (not an arm).
-
-No MediaPipe, no deep learning.
+Classical CV hand detection for guitar chord learning.
+Uses position-targeted verification with hand-specific discrimination.
 """
 
 import cv2
@@ -55,30 +50,15 @@ class FingersDetectorCV:
     3. Blob is contained within check area (not extending through it)
     """
 
-    # Skin detection in YCrCb (tuned for typical skin tones)
-    SKIN_CR_MIN, SKIN_CR_MAX = 135, 175
-    SKIN_CB_MIN, SKIN_CB_MAX = 80, 125
-
-    # Patch size around each chord position to check
-    PATCH_RADIUS = 15
-
-    # Minimum skin ratio in patch to trigger further analysis
-    MIN_SKIN_RATIO = 0.15
-
-    # Maximum skin ratio - if too high, it's probably an arm filling the patch
-    MAX_SKIN_RATIO = 0.85
-
-    # Blob compactness threshold (circularity: 4*pi*area/perimeter^2)
-    # Fingers are rounder (higher), arms are elongated (lower)
+    SKIN_CR_MIN, SKIN_CR_MAX = 135, 175  # Skin detection in YCrCb (tuned for typical skin tones)
+    SKIN_CB_MIN, SKIN_CB_MAX = 80, 125   
+    PATCH_RADIUS = 15                   # Patch size around each chord position to check
+    MIN_SKIN_RATIO = 0.15               # Minimum skin ratio in patch to trigger further analysis
+    MAX_SKIN_RATIO = 0.85               # Maximum skin ratio in patch (if too high, likely an arm filling the patch)   
     MIN_COMPACTNESS = 0.25
 
-    # Minimum blob area as fraction of patch
     MIN_BLOB_AREA_RATIO = 0.08
-
-    # Maximum blob area as fraction of patch (if too big, it's an arm)
     MAX_BLOB_AREA_RATIO = 0.70
-
-    # Frames required to change state (prevents flicker)
     PERSISTENCE_FRAMES = 4
 
     def __init__(self):
@@ -87,13 +67,8 @@ class FingersDetectorCV:
         self.fretboard_std_lab = None
         self.is_learned = False
 
-        # Position states for temporal persistence (keyed by (fret, string))
         self._position_states = {}
-
-        # Debug info
         self.last_checks = []  # List of (x, y, result_info)
-
-        # Current chord tracking (to reset states when chord changes)
         self._current_chord_key = None
 
     def learn_fretboard(self, frame, quad):
@@ -131,9 +106,7 @@ class FingersDetectorCV:
     def check_position(self, frame, x, y, fret_num, string_num):
         """
         Check if a FINGER (not arm) is present at position (x, y).
-
-        Returns:
-            bool: True if finger is stably detected at this position
+        Output: True if finger is likely present, False otherwise. 
         """
         h, w = frame.shape[:2]
         r = self.PATCH_RADIUS
@@ -169,9 +142,9 @@ class FingersDetectorCV:
     def _is_finger_present(self, patch):
         """
         Analyze patch to determine if a finger (not arm) is present.
-
-        Returns:
-            (bool, dict): (is_finger, debug_info)
+        Output: (is_finger, info_dict):
+        is_finger is boolean
+        info_dict contains diagnostic info for debugging.
         """
         info = {"skin_ratio": 0, "blob_area_ratio": 0, "compactness": 0, "reason": ""}
 
@@ -259,7 +232,9 @@ class FingersDetectorCV:
         return True, info
 
     def _get_skin_mask(self, patch):
-        """Get skin color mask, optionally filtering out fretboard color."""
+        """Get skin color mask, optionally filtering out fretboard color.
+        Output: binary mask of skin-like pixels in the patch."""
+
         # Convert to YCrCb
         ycrcb = cv2.cvtColor(patch, cv2.COLOR_BGR2YCrCb)
 

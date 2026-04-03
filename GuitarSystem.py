@@ -1,3 +1,9 @@
+"""
+Core guitar learning system logic.
+Handles fretboard tracking, chord state management, song progression, and
+hand detection integration.
+"""
+
 import cv2
 import chords_data
 import string_and_frets as sf
@@ -35,7 +41,7 @@ class GuitarSystem:
         self.use_mediapipe = use_mediapipe
         self._init_finger_detector()
 
-        self.show_hand_debug = True
+        self.show_hand_debug = False # Set to True to show hand landmarks and debug info
         self.show_tracker_lines = True
 
         self.finger_map = {
@@ -60,6 +66,11 @@ class GuitarSystem:
     # Song logic
     # =========================================================
     def start_playing_song(self, song_id):
+        """
+        Start playing a song by ID. 
+        Initializes song state and starts countdown.
+        """
+
         self.active_song_id = song_id
         self.song_chords_sequence = SONGS.get(song_id, [])
         self.current_chord_index = 0
@@ -71,6 +82,10 @@ class GuitarSystem:
         print(f"Starting countdown for: {song_id}")
 
     def stop_playing_song(self):
+        """
+        Stop song playback and reset related state.
+        Clears current chord and lyric from screen.
+        """
         self.is_playing_song = False
         self.countdown_active = False
         self.active_song_id = None
@@ -82,6 +97,9 @@ class GuitarSystem:
         print("Stopped playing song. Chord cleared from screen.")
 
     def _update_chord_from_sequence(self):
+        """
+        Update current chord and lyric based on song sequence and current index.
+        """
         if self.song_chords_sequence and self.current_chord_index < len(self.song_chords_sequence):
             node = self.song_chords_sequence[self.current_chord_index]
             self.current_chord_name = node["chord"]
@@ -219,6 +237,11 @@ class GuitarSystem:
         return best_hand
 
     def _draw_chord_feedback_with_hand(self, raw_frame, display_frame):
+        """
+        Draw chord target positions and hand feedback.
+        If use_mediapipe is True, use MediaPipe-based fingertip detection for feedback.
+        Otherwise, use classical CV position-based detection.
+         Output: display_frame with chord targets and feedback drawn."""
         if (
             self.current_chord_data is None
             or not self.tracker.is_strings_calibrated
@@ -233,7 +256,7 @@ class GuitarSystem:
             return self._draw_chord_feedback_cv(raw_frame, display_frame)
 
     def _draw_chord_feedback_mediapipe(self, raw_frame, display_frame):
-        """MediaPipe-based chord feedback (original approach)."""
+        """MediaPipe-based chord feedback"""
         all_hands = self.finger_detector.detect_all_hands_fingertips(raw_frame)
         if not all_hands:
             return display_frame
@@ -389,6 +412,7 @@ class GuitarSystem:
     # Main frame processing
     # =========================================================
     def process_frame(self, frame, key):
+        """Main frame processing function."""
         height, width = frame.shape[:2]
 
         just_locked = False
@@ -431,7 +455,6 @@ class GuitarSystem:
 
         # -----------------------------
         # Update tracker every frame
-        # BUT do not update on the same frame we just locked
         # -----------------------------
         if not just_locked:
             self.tracker.update(frame)

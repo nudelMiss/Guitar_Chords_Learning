@@ -1,7 +1,10 @@
+""" The main Flask application for the Guitar Learning System.
+It serves the web interface, handles user interactions, and manages 
+the camera feed and core system state."""
+
 from flask import Flask, render_template, Response, jsonify
 import cv2
 import threading
-
 from GuitarSystem import GuitarSystem
 
 app = Flask(__name__)

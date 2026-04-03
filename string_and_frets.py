@@ -1,7 +1,10 @@
+"""
+Guitar neck and fret tracking via ORB features + optical flow.
+The tracker locks onto the neck region (with user help) and detects fret lines
+and string positions. It then tracks the neck in subsequent frames, allowing
+us to map fret/string coordinates to pixel locations for dot rendering."""
 import cv2
 import numpy as np
-
-
 
 class GuitarNeckTracker:
     def __init__(self):
@@ -36,7 +39,7 @@ class GuitarNeckTracker:
         self.tracking_ok = False
         self.failed_frames = 0
 
-        # ORB + matcher (much faster than AKAZE)
+        # ORB + matcher
         self.detector = cv2.ORB_create(nfeatures=1000)
         self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -74,6 +77,7 @@ class GuitarNeckTracker:
         self.is_strings_calibrated = False
 
     def lock(self, frame):
+        """Lock onto the neck region with user help; detect frets and strings."""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         quad = self._rel_roi_to_abs_quad(frame.shape)
@@ -116,10 +120,6 @@ class GuitarNeckTracker:
                 if len(new_frets) >= len(self.fret_model_rel):
                     self.fret_model_rel = new_frets
 
-        # Expand the refined_quad slightly (6% vertically) for better string alignment.
-        # The boundary refinement tends to be too tight — the detected edge is
-        # slightly inside the actual fretboard. This expansion corrects the
-        # visual alignment without affecting tracking precision.
         self.refined_quad = self._scale_quad_about_center(
             self.refined_quad, sx=1.0, sy=1.06
         )
@@ -149,7 +149,7 @@ class GuitarNeckTracker:
         self.tracking_ok = True
         self.failed_frames = 0
         self.frames_since_lock = 0
-        # Strings are NOT auto-calibrated; user must press 's' separately
+        
         self.string_model_rel = []
         self.is_strings_calibrated = False
 
@@ -162,6 +162,7 @@ class GuitarNeckTracker:
         return True
 
     def update(self, frame):
+        """Track the neck region in the new frame; return False if tracking failed."""
         self.preview_quad = self._get_search_quad(frame.shape)
 
         if not self.is_tracking or self.locked_quad is None:
@@ -193,6 +194,8 @@ class GuitarNeckTracker:
         return True
 
     def calibrate_strings(self, frame):
+        """Detect string positions within the locked neck region;
+        fallback to evenly spaced."""
         if self.refined_quad is None:
             print("Strings failed: no fretboard locked.")
             return False
@@ -226,6 +229,7 @@ class GuitarNeckTracker:
             self.fret_model_rel = new_frets
 
     def get_locked_model(self):
+        """Return the current fretboard bounding box and fret/string model."""
         if self.refined_quad is None:
             return {"x_min": 0, "x_max": 0, "y_t": 0, "y_b": 0}
 
@@ -239,6 +243,7 @@ class GuitarNeckTracker:
         }
 
     def get_dot_coordinates(self, fret_num, string_num, mirror_frets=True):
+        """Given 1-based fret and string numbers, return pixel coordinates for dot rendering."""
         if self.refined_quad is None:
             return -1, -1
         if not self.fret_model_rel or not self.string_model_rel:
@@ -283,8 +288,6 @@ class GuitarNeckTracker:
             cv2.line(out, tuple(pt[3]), tuple(pt[2]), (255, 0, 0), 2)
             cv2.line(out, tuple(pt[2]), tuple(pt[0]), (255, 0, 0), 2)
             return out
-
-        # Tracking mode: do NOT draw yellow preview/search box anymore
 
         rc = self.refined_quad.astype(int)
         cv2.line(out, tuple(rc[0]), tuple(rc[1]), (255, 0, 0), 2)
@@ -400,15 +403,7 @@ class GuitarNeckTracker:
         )
 
     def _refine_boundary_via_frets(self, frame, refined_quad, fret_rels):
-        """
-        Refine fretboard boundary using column-wise intensity gradient
-        edge detection with ADAPTIVE thresholding for varying lighting.
-
-        Uses percentile-based thresholds instead of fixed values to handle
-        both bright and dim lighting conditions.
-
-        Returns a tighter refined_quad (trapezoid), or None on failure.
-        """
+        
         # --- crop an EXPANDED bounding box so search zones reach real edges ---
         x0, y0, x1, y1 = self._quad_to_bbox(refined_quad)
         h, w = frame.shape[:2]

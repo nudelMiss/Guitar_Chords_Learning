@@ -1,3 +1,9 @@
+"""
+Hand detection and fingertip extraction using MediaPipe Hand Landmarker.
+This module defines the HandDetector class, which uses MediaPipe's Hand
+Landmarker to detect hand landmarks in video frames and extract fingertip positions. 
+"""
+
 import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
@@ -24,6 +30,7 @@ HAND_CONNECTIONS = [
 ]
 
 class _EMA:
+    """Simple Exponential Moving Average for smoothing fingertip positions."""
     def __init__(self, alpha=0.6):
         self.alpha = alpha
         self.state = None
@@ -57,6 +64,8 @@ class HandDetector:
         self.last_fingertips_px = None
 
     def detect_fingers_and_frets(self, frame_bgr):
+        """Detect hand landmarks and extract fingertip positions
+        with optional EMA smoothing."""
         h, w = frame_bgr.shape[:2]
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
         
