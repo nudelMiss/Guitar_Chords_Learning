@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import cv2
-from hand_detector import HandDetector
+from HandDetector import HandDetector
 
 
 def main():

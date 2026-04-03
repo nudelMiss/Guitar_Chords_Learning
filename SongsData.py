@@ -1,3 +1,9 @@
+"""
+Data repository for song structures.
+Defines the sequence of chords, their durations, and associated lyrics 
+for the 'Play Song' mode in the application.
+Output: A dictionary (SONGS) containing structured song data."""
+
 SONGS = {
     "let_it_be": [
         # --- Verse 1 ---
